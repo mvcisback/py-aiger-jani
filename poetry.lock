@@ -1,0 +1,217 @@
+[[package]]
+name = "attrs"
+version = "20.3.0"
+description = "Classes Without Boilerplate"
+category = "main"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
+
+[package.extras]
+dev = ["coverage[toml] (>=5.0.2)", "hypothesis", "pympler", "pytest (>=4.3.0)", "six", "zope.interface", "furo", "sphinx", "pre-commit"]
+docs = ["furo", "sphinx", "zope.interface"]
+tests = ["coverage[toml] (>=5.0.2)", "hypothesis", "pympler", "pytest (>=4.3.0)", "six", "zope.interface"]
+tests_no_zope = ["coverage[toml] (>=5.0.2)", "hypothesis", "pympler", "pytest (>=4.3.0)", "six"]
+
+[[package]]
+name = "bidict"
+version = "0.21.2"
+description = "The bidirectional mapping library for Python."
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.extras]
+coverage = ["coverage (<6)", "pytest-cov (<3)"]
+dev = ["setuptools-scm", "hypothesis (<6)", "py (<2)", "pytest (<7)", "pytest-benchmark (>=3.2.0,<4)", "sortedcollections (<2)", "sortedcontainers (<3)", "Sphinx (<4)", "sphinx-autodoc-typehints (<2)", "coverage (<6)", "pytest-cov (<3)", "pre-commit (<3)", "tox (<4)"]
+docs = ["Sphinx (<4)", "sphinx-autodoc-typehints (<2)"]
+precommit = ["pre-commit (<3)"]
+test = ["hypothesis (<6)", "py (<2)", "pytest (<7)", "pytest-benchmark (>=3.2.0,<4)", "sortedcollections (<2)", "sortedcontainers (<3)", "Sphinx (<4)", "sphinx-autodoc-typehints (<2)"]
+
+[[package]]
+name = "funcy"
+version = "1.15"
+description = "A fancy and practical functional tools"
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
+name = "parsimonious"
+version = "0.8.1"
+description = "(Soon to be) the fastest pure-Python PEG parser I could muster"
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+six = ">=1.9.0"
+
+[[package]]
+name = "py-aiger"
+version = "6.1.14"
+description = "A python library for manipulating sequential and-inverter gates."
+category = "main"
+optional = false
+python-versions = ">=3.7,<4.0"
+
+[package.dependencies]
+attrs = ">=20.0.0,<21.0.0"
+bidict = ">=0.21.0,<0.22.0"
+funcy = ">=1.12,<2.0"
+parsimonious = ">=0.8.1,<0.9.0"
+pyrsistent = ">=0.17.0,<0.18.0"
+sortedcontainers = ">=2.3.0,<3.0.0"
+toposort = ">=1.5,<2.0"
+
+[[package]]
+name = "py-aiger-bv"
+version = "4.5.3"
+description = "A python library for manipulating sequential and-inverter gates."
+category = "main"
+optional = false
+python-versions = ">=3.7,<4.0"
+
+[package.dependencies]
+attrs = ">=20.0.0,<21.0.0"
+funcy = ">=1.12,<2.0"
+py-aiger = ">=6.1.2,<7.0.0"
+pyrsistent = ">=0.17,<0.18"
+
+[[package]]
+name = "py-aiger-coins"
+version = "3.3.0"
+description = "Library for creating circuits that encode discrete distributions."
+category = "main"
+optional = false
+python-versions = ">=3.7,<4.0"
+
+[package.dependencies]
+attrs = ">=20.0.0,<21.0.0"
+funcy = ">=1.13,<2.0"
+py-aiger = ">=6.1.1,<7.0.0"
+py-aiger-bv = ">=4.4.0,<5.0.0"
+py-aiger-discrete = ">=0.1.2,<0.2.0"
+
+[package.extras]
+bdd = ["py-aiger-bdd (>=3.0.0,<4.0.0)", "mdd (>=0.3.4,<0.4.0)", "numpy (>=1.19.4,<2.0.0)"]
+sat = ["py-aiger-sat (>=3.0.4,<4.0.0)"]
+
+[[package]]
+name = "py-aiger-discrete"
+version = "0.1.8"
+description = "Library for modeling functions over discrete sets using aiger circuits."
+category = "main"
+optional = false
+python-versions = ">=3.7,<4.0"
+
+[package.dependencies]
+funcy = ">=1.14,<2.0"
+py-aiger-bv = ">=4.5.1,<5.0.0"
+py-aiger-ptltl = ">=3.0.1,<4.0.0"
+pyrsistent = ">=0.17.3,<0.18.0"
+
+[package.extras]
+mdd = ["mdd (>=0.3.3,<0.4.0)"]
+
+[[package]]
+name = "py-aiger-ptltl"
+version = "3.1.0"
+description = "Library for generating (p)ast (t)ense (l)inear (t)emporal (l)ogic monitors as aiger circuits."
+category = "main"
+optional = false
+python-versions = ">=3.7,<4.0"
+
+[package.dependencies]
+py-aiger = ">=6.0.0,<7.0.0"
+
+[package.extras]
+with_bv = ["py-aiger-bv (>=4.5.2,<5.0.0)"]
+
+[[package]]
+name = "pyrsistent"
+version = "0.17.3"
+description = "Persistent/Functional/Immutable data structures"
+category = "main"
+optional = false
+python-versions = ">=3.5"
+
+[[package]]
+name = "six"
+version = "1.15.0"
+description = "Python 2 and 3 compatibility utilities"
+category = "main"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*"
+
+[[package]]
+name = "sortedcontainers"
+version = "2.3.0"
+description = "Sorted Containers -- Sorted List, Sorted Dict, Sorted Set"
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
+name = "toposort"
+version = "1.6"
+description = "Implements a topological sort algorithm."
+category = "main"
+optional = false
+python-versions = "*"
+
+[metadata]
+lock-version = "1.1"
+python-versions = "^3.8"
+content-hash = "b7dbf7c2fb1747b560acf7d48b08458903ac037a5f97f0c92bca51be96efd96a"
+
+[metadata.files]
+attrs = [
+    {file = "attrs-20.3.0-py2.py3-none-any.whl", hash = "sha256:31b2eced602aa8423c2aea9c76a724617ed67cf9513173fd3a4f03e3a929c7e6"},
+    {file = "attrs-20.3.0.tar.gz", hash = "sha256:832aa3cde19744e49938b91fea06d69ecb9e649c93ba974535d08ad92164f700"},
+]
+bidict = [
+    {file = "bidict-0.21.2-py2.py3-none-any.whl", hash = "sha256:929d056e8d0d9b17ceda20ba5b24ac388e2a4d39802b87f9f4d3f45ecba070bf"},
+    {file = "bidict-0.21.2.tar.gz", hash = "sha256:4fa46f7ff96dc244abfc437383d987404ae861df797e2fd5b190e233c302be09"},
+]
+funcy = [
+    {file = "funcy-1.15-py2.py3-none-any.whl", hash = "sha256:c247c3d085e03a89974e0c9e8331e9a79db3768a263556ba896d6c92d665bba2"},
+    {file = "funcy-1.15.tar.gz", hash = "sha256:65b746fed572b392d886810a98d56939c6e0d545abb750527a717c21ced21008"},
+]
+parsimonious = [
+    {file = "parsimonious-0.8.1.tar.gz", hash = "sha256:3add338892d580e0cb3b1a39e4a1b427ff9f687858fdd61097053742391a9f6b"},
+]
+py-aiger = [
+    {file = "py-aiger-6.1.14.tar.gz", hash = "sha256:74b1bc428d0ff7b273bc929d761ce7e55ccc42083350c41a0f8e59d53836e667"},
+    {file = "py_aiger-6.1.14-py3-none-any.whl", hash = "sha256:c4e0e44e805dea25dc5baff8e26c6738b4b4084baa6609167d85a134b181e50b"},
+]
+py-aiger-bv = [
+    {file = "py-aiger-bv-4.5.3.tar.gz", hash = "sha256:d409fcd9b51cdb38f8f473b62972df9de78ca13f56a8db68e75ea744409d4fb0"},
+    {file = "py_aiger_bv-4.5.3-py3-none-any.whl", hash = "sha256:ff1efa57db47289d8c7a6122d19bce7ccd24c2b7c0d6d487ae95475de74bca7f"},
+]
+py-aiger-coins = [
+    {file = "py-aiger-coins-3.3.0.tar.gz", hash = "sha256:f596b05640c376ee7abf50b3127eff45aaa38765892584428893bbd142058136"},
+    {file = "py_aiger_coins-3.3.0-py3-none-any.whl", hash = "sha256:0672cf1254a9c49ca1ae6377d5e40aeb904663ecfb3a721e74cc5bb39df23214"},
+]
+py-aiger-discrete = [
+    {file = "py-aiger-discrete-0.1.8.tar.gz", hash = "sha256:70ad69a06368651a8ff57ea176b7bb7509aca70218b39a3d416339b8b1541a67"},
+    {file = "py_aiger_discrete-0.1.8-py3-none-any.whl", hash = "sha256:9b7473ff04d23509c5783b5b6f09c6e1bd44a7b8ac762e860e00869cdc309c61"},
+]
+py-aiger-ptltl = [
+    {file = "py-aiger-ptltl-3.1.0.tar.gz", hash = "sha256:f1bbd5b7259e6e83020e07676ed22ccf71bb3b04ad9d5cb7bf231b76ef8bf1b8"},
+    {file = "py_aiger_ptltl-3.1.0-py3-none-any.whl", hash = "sha256:c146cfeb94d553f7ecba1924648cc3443ebdf848a812214115c28337b41160d6"},
+]
+pyrsistent = [
+    {file = "pyrsistent-0.17.3.tar.gz", hash = "sha256:2e636185d9eb976a18a8a8e96efce62f2905fea90041958d8cc2a189756ebf3e"},
+]
+six = [
+    {file = "six-1.15.0-py2.py3-none-any.whl", hash = "sha256:8b74bedcbbbaca38ff6d7491d76f2b06b3592611af620f8426e82dddb04a5ced"},
+    {file = "six-1.15.0.tar.gz", hash = "sha256:30639c035cdb23534cd4aa2dd52c3bf48f06e5f4a941509c8bafd8ce11080259"},
+]
+sortedcontainers = [
+    {file = "sortedcontainers-2.3.0-py2.py3-none-any.whl", hash = "sha256:37257a32add0a3ee490bb170b599e93095eed89a55da91fa9f48753ea12fd73f"},
+    {file = "sortedcontainers-2.3.0.tar.gz", hash = "sha256:59cc937650cf60d677c16775597c89a960658a09cf7c1a668f86e1e4464b10a1"},
+]
+toposort = [
+    {file = "toposort-1.6-py2.py3-none-any.whl", hash = "sha256:2ade83028dd067a1d43c142469cbaf4136b92fdc1c4303f16c40f126442fdaf3"},
+    {file = "toposort-1.6.tar.gz", hash = "sha256:a7428f56ef844f5055bb9e9e44b343983773ae6dce0fe5b101e08e27ffbd50ac"},
+]
