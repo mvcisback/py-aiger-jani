@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import json
 import numpy as np
-import aiger
 import aiger_bv as BV
 import aiger_coins as C
+import aiger_discrete
+from bidict import bidict
 from fractions import Fraction
 
 
@@ -55,15 +56,39 @@ class AutomatonContext:
         self._aut_name = aut_name
         self.scope = scope
         self.locations = locations
+        self._actions = {"" : 0}
+        self._actions_cnt = {"" : 0}
         self._distributions = {}
 
     def register_distribution(self, probs):
+        """
+        Register a distribution
+        :param probs: The distribution as a list of probabilities
+        :return: A pcirc that generates a binary-encoded output sel that corresponds to sampling from the distribution.
+        """
         dist = tuple(probs)
         if dist not in self._distributions:
             name = f"{self._aut_name}_c{len(self._distributions)}"
-            atom = BV.uatom(len(probs),name)
-            self._distributions[dist] = C.pcirc(atom).randomize({name : { index: prob for index, prob in enumerate(probs)}})
+            atom = BV.uatom(int(np.ceil(np.log(len(probs)))),name).with_output("sel")
+            lookup = bidict({index: f'sel-{index}' for index in range(len(probs))})  # invertable dictionary.
+            encoder = aiger_discrete.Encoding(decode=lookup.get, encode=lookup.inv.get)
+            func = aiger_discrete.from_aigbv(
+                atom.aigbv, input_encodings={name: encoder}
+            )
+            self._distributions[dist] = C.pcirc(func).randomize({name : { f"sel-{index}": prob for index, prob in enumerate(probs)}})
         return self._distributions[dist]
+
+    def register_action(self, action : str):
+        """
+        :param action: The name of the action
+        :return: The action index and the internal non-det index
+        """
+        if action not in self._actions:
+            self._actions[action] = len(self._actions)
+        self._actions_cnt[action] = self._actions_cnt.get(action, 0) + 1
+        return self._actions[action], self._actions_cnt[action]
+
+
 
 
 def _translate_constants(data : dict, scope : JaniScope):
@@ -124,52 +149,53 @@ def _parse_prob(data):
         NotImplementedError(f"We only support constant probs given as floating point numbers, but got {data}")
 
 
-def _selector(selector_bits, computation, index = 0):
-    print("Selector")
-    print(selector_bits)
-    print("Computation")
-    print(computation)
-    #assert sum(selector_bits.omap.values()) == len(computation) - 1
-    #if len(computation) == index + 1:
-    #    return computation[index]
+def _selector(selector_bits, outputs, index = 0):
+    if index == len(outputs) - 1:
+        return outputs[index]
+    return BV.ite(selector_bits == BV.uatom(1,index), outputs[index], _selector(selector_bits, outputs, index + 1))
 
-    #selector_bits
-
-    #return BV.ite(selector_bits[index], computation[index], _selector(selector_bits, computation, index+1))
 
 def _translate_edges(data : dict, ctx ):
+    max_internal_nondet_bits = int(np.ceil(np.log(len(data))))
+    max_action_bits = int(np.ceil(np.log(len(data) + 1))) # +1 due to reserving space for silent act
+
+    select_edge_expr = []
+    edge_circuits =  []
     for edge in data:
         #TODO add location handling
         assert edge["location"] == "l"
+        act, ndet = ctx.register_action(edge["action"])
+        select_edge_expr.append(BV.uatom(max_action_bits, 'act') == BV.uatom(max_action_bits, act) & \
+                           BV.uatom(max_internal_nondet_bits, 'nd') == BV.uatom(max_internal_nondet_bits, ndet)
+
         if "guard" in edge:
             guard_expr = _translate_expression(edge["guard"]["exp"], ctx.scope)
         else:
             #TODO add true
             pass
         if len(edge["destinations"]) == 1:
-            prob_input = aiger.source(True)
             pass
         else:
             probs = []
             for d in edge["destinations"]:
                 probs.append(_parse_prob(d["probability"]["exp"]))
             prob_input = ctx.register_distribution(probs)
+            #TODO consider what to do with the additional output of prob_input
 
         vars_written_to = set()
         for d in edge["destinations"]:
             for a in d["assignments"]:
                 vars_written_to.add(a["ref"])
-
         destinations = []
         for index, d in enumerate(edge["destinations"]):
             assert d["location"] == "l"
             updates = {}
             #TODO add location handling
             for assignment in d["assignments"]:
-                var_primed = assignment["ref"] + "'"
+                var_primed = assignment["ref"] + "'" + "-" + str(index)
                 updates[var_primed] = _translate_expression(assignment["value"], ctx.scope).with_output(var_primed)
             for var in vars_written_to:
-                var_primed = var + "'"
+                var_primed = var + "'" + "-" + str(index)
                 if var_primed not in updates:
                     updates[var_primed] = ctx.scope.get_aig_variable(var).with_output(var_primed)
 
@@ -180,8 +206,25 @@ def _translate_edges(data : dict, ctx ):
                 update = update | up.aigbv
             destinations.append(update)
 
-        transition = _selector(prob_input, destinations)
+        edge_circuit = destinations[0]
+        for d in destinations[1:]:
+            edge_circuit = edge_circuit | d
 
+        vars_written_to = list(vars_written_to)
+
+        if len(destinations) > 1:
+            #TODO replace 2
+            print("Construct selector")
+            selector = _selector(BV.uatom(int(np.ceil(np.log(len(probs)))),'sel'),
+                                   [BV.uatom(2, vars_written_to[0] + "'" + "-" + str(index)) for index in range(len(destinations))]).with_output(vars_written_to[0]).aigbv
+            for var in vars_written_to[1:]:
+                #TODO replace 2
+                selector = selector | _selector(BV.uatom(int(np.ceil(np.log(len(probs)))),'sel'),
+                                   [BV.uatom(2, var + "'" + "-" + str(index)) for index in range(len(destinations))]).with_output(var).aigbv
+            edge_circuit = edge_circuit >> selector
+            edge_circuit = prob_input >> edge_circuit
+
+        edge_circuits.append(edge_circuit)
 
 
 def _create_automaton_context(data : dict, scope : JaniScope):
@@ -193,6 +236,8 @@ def _create_automaton_context(data : dict, scope : JaniScope):
         if l not in locations:
             raise ValueError("Location {l} is unknown")
         locations[l] = True
+
+
     return AutomatonContext(data["name"], scope, locations)
 
 
