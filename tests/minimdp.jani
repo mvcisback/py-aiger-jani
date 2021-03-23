@@ -23,6 +23,11 @@
                                         "op": "+",
                                         "right": 1
                                     }
+                                },
+                                {
+                                    "comment": "y <- (x)",
+                                    "ref": "y",
+                                    "value": "x"
                                 }
                             ],
                             "location": "l",
@@ -98,6 +103,16 @@
                 {
                     "initial-value": 1,
                     "name": "x",
+                    "type": {
+                        "base": "int",
+                        "kind": "bounded",
+                        "lower-bound": 0,
+                        "upper-bound": 3
+                    }
+                },
+                {
+                    "initial-value": 1,
+                    "name": "y",
                     "type": {
                         "base": "int",
                         "kind": "bounded",
