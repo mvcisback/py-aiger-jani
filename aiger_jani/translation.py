@@ -97,11 +97,10 @@ class AutomatonContext:
         return self._actions[action], self._actions_cnt[action]
 
 
-
-
 def _translate_constants(data : dict, scope : JaniScope):
     for _ in data:
         raise NotImplementedError("Constants are not supported yet.")
+
 
 def _translate_variables(data : dict, scope : JaniScope):
     for v in data:
@@ -130,6 +129,12 @@ _BINARY_BOOL_OP_MAP = {"≤" : lambda x, y: x <= y ,
 
 
 def _translate_expression(data : dict, scope : JaniScope):
+    """
+    Takes an expression in JANI json, returns a circuit.
+    :param data:  the expression AST
+    :param scope: The scope with the variable definitions.
+    :return: An expression in py-aiger-bv
+    """
     if isinstance(data, int):
         # TODO replace the constant two here.
         return BV.uatom(2, data)
@@ -154,6 +159,12 @@ def _translate_expression(data : dict, scope : JaniScope):
 
 
 def _parse_prob(data):
+    """
+    Parses a probability
+
+    :param data: A json JANI representation of the expression that gives the probability.
+    :return: A fraction
+    """
     if isinstance(data, float):
         return Fraction(data)
     else:
@@ -239,11 +250,6 @@ def _translate_edges(data : dict, ctx : AutomatonContext ):
     for edge_index, edge in enumerate(data):
         #TODO add location handling
         assert edge["location"] == "l"
-        #TOD
-        #act, ndet = ctx.register_action(edge["action"])
-        #select_edge_expr.append((BV.uatom(max_action_bits, 'act') == BV.uatom(max_action_bits, act)) & \
-        #                        (BV.uatom(max_internal_nondet_bits, 'nd') == BV.uatom(max_internal_nondet_bits, ndet)))
-
 
         edge_circuit, vars_written_to = _translate_destinations(edge["destinations"], ctx)
         if "guard" in edge:
@@ -265,8 +271,6 @@ def _translate_edges(data : dict, ctx : AutomatonContext ):
         edge_circuit = edge_circuit['o', { o : o + "-" + str(edge_index) for o in edge_circuit.outputs}]
         edge_circuits.append(edge_circuit)
 
-
-    print("##########################################")
     for c in edge_circuits:
         print(c)
     aut_circuit = edge_circuits[0]
@@ -280,7 +284,7 @@ def _translate_edges(data : dict, ctx : AutomatonContext ):
                              [BV.uatom(ctx.scope.get_aig_variable(v.name).size, v.name + "-" + str(index)) for index in
                               range(len(edge_circuits))]).with_output(v.name).aigbv
     aut_circuit = aut_circuit >> selector
-    print(aut_circuit)
+    return aut_circuit
 
 
 def _create_automaton_context(data : dict, scope : JaniScope):
@@ -293,14 +297,13 @@ def _create_automaton_context(data : dict, scope : JaniScope):
             raise ValueError("Location {l} is unknown")
         locations[l] = True
 
-
     return AutomatonContext(data["name"], scope, locations)
 
 
 def _translate_automaton(data : dict, scope : JaniScope):
     ctx = _create_automaton_context(data, scope)
     _translate_variables(data["variables"], scope)
-    _translate_edges(data["edges"], ctx)
+    return _translate_edges(data["edges"], ctx)
     #TODO return something
 
 def translate_file(path):
@@ -314,8 +317,9 @@ def translate_jani(data : json):
     global_scope = JaniScope()
     _translate_constants(data["constants"], global_scope)
     _translate_variables(data["variables"], global_scope)
+    assert len(data["automata"]) == 1
     for aut in data["automata"]:
-        _translate_automaton(aut, global_scope.make_local_scope_copy())
+        return _translate_automaton(aut, global_scope.make_local_scope_copy())
     #TODO do something with the automata.
 
 
