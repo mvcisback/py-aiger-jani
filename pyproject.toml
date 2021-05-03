@@ -16,6 +16,7 @@ py-aiger = "^6.1.14"
 py-aiger-coins = "^3.3.0"
 py-aiger-bv = "^4.5.3"
 numpy = "^1.20.2"
+attrs = "^20.3.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.2"

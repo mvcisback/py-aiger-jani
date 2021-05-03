@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any, Sequence
+
 import json
 import numpy as np
 import aiger_bv as BV
@@ -8,45 +10,62 @@ import aiger_discrete
 from bidict import bidict
 from fractions import Fraction
 
+import attr
 
+
+
+BVExpr = BV.UnsignedBVExpr
+
+
+@attr.s(auto_attribs=True, auto_detect=True, frozen=True)
 class JaniIntegerVariable:
-    """
-    Integer variables in JANI
-    """
-    def __init__(self, name, lower_bound : int, upper_bound : int, is_local : bool):
-        self.name = name
-        self.lower_bound = lower_bound
-        self.upper_bound = upper_bound
-        self.is_local = is_local
+    name: str
+    lower_bound: int
+    upper_bound: int
+    is_local: bool
 
 
+@attr.s(auto_attribs=True, auto_detect=True, frozen=True)
 class JaniScope:
-    def __init__(self):
-        self._variables = {}
-        self._aigvars = {}
-        self._local = False
+    _local: bool = False
+    _aigvars: dict[str, BVExpr] = attr.ib(factory=dict)
+    _variables: dict[str, JaniIntegerVariable] = attr.ib(factory=dict)
 
-    def add_bounded_int_variable(self, name, lower_bound : int, upper_bound : int) -> None:
+    def add_bounded_int_variable(
+            self, 
+            name: str, 
+            lower_bound : int,
+            upper_bound : int) -> None:
         """
         Add bounded integer variable to the scope
-        :param name: name of the variable
-        :param lower_bound: lower bound on the variable range (must be an int for now)
-        :param upper_bound: upper bound on the variable range (must be an int for now)
-        :return:
+        :param name: name of the variable.
+        :param lower_bound: lower bound on the variable range (must be
+           an int for now).
+        :param upper_bound: upper bound on the variable range (must be
+           an int for now).
+        :return:n
         """
         if name in self._variables:
-            raise ValueError(f"Variable with name {name} already exists in scope.")
-        self._variables[name] = JaniIntegerVariable(name, lower_bound, upper_bound, self._local)
-        self._aigvars[name]  = BV.atom(int(np.ceil(np.log(upper_bound - lower_bound))), name)
+            raise ValueError(
+                f"Variable with name {name} already exists in scope."
+            )
+
+        self._variables[name] = JaniIntegerVariable(
+            name, lower_bound, upper_bound, self._local)
+        self._aigvars[name] = BV.atom(
+            wordlen=int(np.ceil(np.log(upper_bound - lower_bound))), 
+            val=name
+        )
 
     def make_local_scope_copy(self) -> JaniScope:
         if self._local:
             raise ValueError("You should not copy local scopes")
-        local_scope = JaniScope()
-        local_scope._variables = self._variables.copy()
-        local_scope._aigvars = self._aigvars.copy()
-        local_scope._local = True
-        return local_scope
+
+        return JaniScope(
+            local=True,
+            aigvars=self._aigvars.copy(),
+            variables=self._variables.copy(),
+        )
 
     def get_aig_variable(self, name : str) -> BV.UnsignedBVExpr:
         return self._aigvars[name]
@@ -56,17 +75,21 @@ class JaniScope:
 
     @property
     def variables(self):
+        # TODO: should this be frozenset?
         return list(self._variables.values())
 
 
+Probs = Sequence[float]
+
+
+@attr.s(auto_attribs=True, auto_detect=True, frozen=True)
 class AutomatonContext:
-    def __init__(self, aut_name, scope, locations):
-        self._aut_name = aut_name
-        self.scope = scope
-        self.locations = locations
-        self._actions = {"" : 0}
-        self._actions_cnt = {"" : 0}
-        self._distributions = {}
+    _aut_name: str
+    scope: JaniScope
+    locations: dict[Any, bool]  # TODO: tighen signature.
+    _actions: dict[str, int] = attr.ib(factory=lambda: {"": 0})
+    _actions_cnt: dict[str, int] = attr.ib(factory=lambda: {"": 0})
+    _distributions: dict[probs, C.PCirc] = attr.ib(factory=dict)
 
     def register_distribution(self, probs):
         """
