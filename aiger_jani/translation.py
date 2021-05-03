@@ -266,7 +266,7 @@ def _translate_destinations(data : dict, ctx : AutomatonContext) -> set[str]:
                          f"{vars_written_to[0]}-{index}") for index in
                 range(len(destinations))]).with_output(vars_written_to[0]).aigbv
         for var in vars_written_to[1:]:
-            selector = selector | _selector(BV.uatom(int(np.ceil(np.log(len(probs)))), 'sel'),
+            selector = selector | _selector(atom(len(probs), 'sel'),
                                             [BV.uatom(ctx.scope.get_aig_variable(var).size, var + "-" + str(index)) for
                                              index in range(len(destinations))]).with_output(var).aigbv
 
