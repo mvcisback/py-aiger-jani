@@ -243,12 +243,12 @@ def _translate_destinations(data : dict, ctx : AutomatonContext) -> set[str]:
         for assignment in d["assignments"]:
             var_primed = assignment["ref"]
             if len(data) > 1:
-                var_primed += f" - {index}"
+                var_primed += f"-{index}"
             updates[var_primed] = _translate_expression(assignment["value"], ctx.scope).with_output(var_primed)
         for var in vars_written_to:
             var_primed = var
             if len(data) > 1:
-                var_primed += f" - {index}"
+                var_primed += f"-{index}"
             if var_primed not in updates:
                 updates[var_primed] = ctx.scope.get_aig_variable(var).with_output(var_primed)
 
@@ -263,7 +263,7 @@ def _translate_destinations(data : dict, ctx : AutomatonContext) -> set[str]:
             atom(len(probs), 'sel'),
             outputs=[
                 BV.uatom(ctx.scope.get_aig_variable(vars_written_to[0]).size,
-                         f"{vars_written_to[0]} - {index}") for index in
+                         f"{vars_written_to[0]}-{index}") for index in
                 range(len(destinations))]).with_output(vars_written_to[0]).aigbv
         for var in vars_written_to[1:]:
             selector = selector | _selector(BV.uatom(int(np.ceil(np.log(len(probs)))), 'sel'),
