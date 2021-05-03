@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Any, Sequence
 
 import json
@@ -13,8 +14,11 @@ from fractions import Fraction
 import attr
 
 
-
 BVExpr = BV.UnsignedBVExpr
+
+
+def atom(n: float, name: str) -> BVExpr:
+    return BV.uatom(math.ceil(math.log(n)), name)
 
 
 @attr.s(auto_attribs=True, auto_detect=True, frozen=True)
@@ -95,7 +99,8 @@ class AutomatonContext:
         """
         Register a distribution
         :param probs: The distribution as a list of probabilities
-        :return: A pcirc that generates a binary-encoded output sel that corresponds to sampling from the distribution.
+        :return: A pcirc that generates a binary-encoded output sel
+          that corresponds to sampling from the distribution.
         """
         dist = tuple(probs)
         if dist not in self._distributions:
@@ -121,7 +126,7 @@ class AutomatonContext:
 
 
 def _translate_constants(data : dict, scope : JaniScope):
-    for _ in data:
+    if data:
         raise NotImplementedError("Constants are not supported yet.")
 
 
@@ -197,7 +202,13 @@ def _parse_prob(data):
 def _selector(selector_bits, outputs, index = 0):
     if index == len(outputs) - 1:
         return outputs[index]
-    return BV.ite(selector_bits == BV.uatom(selector_bits.size, index), outputs[index], _selector(selector_bits, outputs, index + 1))
+
+    return BV.ite(
+        selector_bits == BV.uatom(selector_bits.size, index), 
+        outputs[index],                               # True
+        _selector(selector_bits, outputs, index + 1)  # False
+    )
+
 
 def _translate_destinations(data : dict, ctx : AutomatonContext) -> set[str]:
     """
@@ -329,11 +340,11 @@ def _translate_automaton(data : dict, scope : JaniScope):
     return _translate_edges(data["edges"], ctx)
     #TODO return something
 
+
 def translate_file(path):
     with open(path) as f:
         jani_enc = json.load(f)
     return translate_jani(jani_enc)
-
 
 
 def translate_jani(data : json):
@@ -344,6 +355,3 @@ def translate_jani(data : json):
     for aut in data["automata"]:
         return _translate_automaton(aut, global_scope.make_local_scope_copy())
     #TODO do something with the automata.
-
-
-
