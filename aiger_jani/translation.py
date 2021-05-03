@@ -338,7 +338,6 @@ def _translate_automaton(data : dict, scope : JaniScope):
     ctx = _create_automaton_context(data, scope)
     _translate_variables(data["variables"], scope)
     return _translate_edges(data["edges"], ctx)
-    #TODO return something
 
 
 def translate_file(path):
@@ -351,7 +350,10 @@ def translate_jani(data : json):
     global_scope = JaniScope()
     _translate_constants(data["constants"], global_scope)
     _translate_variables(data["variables"], global_scope)
-    assert len(data["automata"]) == 1
-    for aut in data["automata"]:
-        return _translate_automaton(aut, global_scope.make_local_scope_copy())
-    #TODO do something with the automata.
+    if len(data["automata"]) != 1:
+        # TODO
+        raise NotImplementedError("Only support monolithic jani.")
+    aut, *_ = data["automata"]
+    return _translate_automaton(aut, global_scope.make_local_scope_copy())
+
+
