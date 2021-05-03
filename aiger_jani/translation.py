@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Sequence
+import operator as ops
+from functools import reduce
+from typing import Any, Sequence, Iterable
 
 import json
 import numpy as np
@@ -14,11 +16,19 @@ from fractions import Fraction
 import attr
 
 
+# Lists all methods in public API.
+__all__ = []
+
+
 BVExpr = BV.UnsignedBVExpr
 
 
 def atom(n: float, name: str) -> BVExpr:
     return BV.uatom(math.ceil(math.log(n)), name)
+
+
+def par_compose(seq: Iterable[BV.AIGBV | BVExpr]) -> BV.AIGBV:
+    return reduce(lambda x, y: x.aigbv | y.aigbv, seq).aigbv
 
 
 @attr.s(auto_attribs=True, auto_detect=True, frozen=True)
@@ -148,12 +158,9 @@ def _translate_variables(data : dict, scope : JaniScope):
         scope.add_bounded_int_variable(v["name"], lower_bound, upper_bound)
 
 
-_BINARY_AEX_OPERATORS = frozenset(["+", "-"])
-_BINARY_AEX_OP_MAP = {"+" : lambda x, y: x + y,
-                      "-" : lambda x, y: x - y}
-_BINARY_BOOL_OPERATORS = frozenset(["≤","≥"])
-_BINARY_BOOL_OP_MAP = {"≤" : lambda x, y: x <= y ,
-                       "≥" : lambda x, y: x >= y}
+BINARY_AEX_OPS = {"+" : ops.add, "-" : ops.sub}
+BINARY_BOOL_OPS = {"≤" : ops.le, "≥" : ops.ge}
+BINARY_OPS = BINARY_AEX_OPS | BINARY_BOOL_OPS
 
 
 def _translate_expression(data : dict, scope : JaniScope):
@@ -168,22 +175,19 @@ def _translate_expression(data : dict, scope : JaniScope):
         return BV.uatom(2, data)
     if isinstance(data, str):
         return scope.get_aig_variable(data)
-    if "op" not in data:
-        raise ValueError(f"{str(data)} is expected to have an operator")
 
-    op = data["op"]
-    if op in _BINARY_BOOL_OPERATORS:
-        lexpr = _translate_expression(data["left"], scope)
-        rexpr = _translate_expression(data["right"], scope)
-        assert lexpr.size == rexpr.size
-        return _BINARY_BOOL_OP_MAP[op](lexpr, rexpr)
-    if op in _BINARY_AEX_OPERATORS:
-        lexpr = _translate_expression(data["left"], scope)
-        rexpr = _translate_expression(data["right"], scope)
-        assert lexpr.size == rexpr.size
-        return _BINARY_AEX_OP_MAP[op](lexpr, rexpr)
-    else:
-        raise NotImplementedError(f"{str(data)} not supported")
+    if "op" not in data:
+        raise ValueError(f"{data} is expected to have an operator")
+
+    try:
+        op = BINARY_OPS[data["op"]]
+    except KeyError:
+        raise NotImplementedError(f"{data} not supported")
+
+    return op(
+        _translate_expression(data["left"], scope),
+        _translate_expression(data["right"], scope),
+    )
 
 
 def _parse_prob(data):
@@ -239,40 +243,38 @@ def _translate_destinations(data : dict, ctx : AutomatonContext) -> set[str]:
         for assignment in d["assignments"]:
             var_primed = assignment["ref"]
             if len(data) > 1:
-                var_primed += "-" + str(index)
+                var_primed += f" - {index}"
             updates[var_primed] = _translate_expression(assignment["value"], ctx.scope).with_output(var_primed)
         for var in vars_written_to:
             var_primed = var
             if len(data) > 1:
-                var_primed += "-" + str(index)
+                var_primed += f" - {index}"
             if var_primed not in updates:
                 updates[var_primed] = ctx.scope.get_aig_variable(var).with_output(var_primed)
 
-        # CONCAT:
-        updates = list(updates.values())
-        update = updates[0].aigbv
-        for up in updates[1:]:
-            update = update | up.aigbv
+        update = par_compose(updates.values())
         destinations.append(update)
 
-    edge_circuit = destinations[0]
-    for d in destinations[1:]:
-        edge_circuit = edge_circuit | d
+    edge_circuit = par_compose(destinations)
 
     vars_written_to = list(vars_written_to)
     if len(destinations) > 1:
-        selector = _selector(BV.uatom(int(np.ceil(np.log(len(probs)))), 'sel'),
-                             [BV.uatom(ctx.scope.get_aig_variable(vars_written_to[0]).size,
-                                       vars_written_to[0] + "-" + str(index)) for index in
-                              range(len(destinations))]).with_output(vars_written_to[0]).aigbv
+        selector = _selector(
+            atom(len(probs), 'sel'),
+            outputs=[
+                BV.uatom(ctx.scope.get_aig_variable(vars_written_to[0]).size,
+                         f"{vars_written_to[0]} - {index}") for index in
+                range(len(destinations))]).with_output(vars_written_to[0]).aigbv
         for var in vars_written_to[1:]:
             selector = selector | _selector(BV.uatom(int(np.ceil(np.log(len(probs)))), 'sel'),
                                             [BV.uatom(ctx.scope.get_aig_variable(var).size, var + "-" + str(index)) for
                                              index in range(len(destinations))]).with_output(var).aigbv
 
-        edge_circuit = edge_circuit >> selector
-        edge_circuit = prob_input >> edge_circuit
+        edge_circuit >>= selector
+        edge_circuit <<= prob_input
+
     return edge_circuit, vars_written_to
+
 
 def _translate_edges(data : dict, ctx : AutomatonContext ):
     #TODO handle notion of actions
@@ -305,8 +307,6 @@ def _translate_edges(data : dict, ctx : AutomatonContext ):
         edge_circuit = edge_circuit['o', { o : o + "-" + str(edge_index) for o in edge_circuit.outputs}]
         edge_circuits.append(edge_circuit)
 
-    for c in edge_circuits:
-        print(c)
     aut_circuit = edge_circuits[0]
     for c in edge_circuits[1:]:
         aut_circuit = aut_circuit | c
