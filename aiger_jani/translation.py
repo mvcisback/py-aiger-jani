@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import json
 import math
 import operator as ops
 from functools import reduce
-from typing import Any, Sequence, Iterable
+from typing import Any, Sequence
 
-import json
+import attr
 import numpy as np
 import aiger_bv as BV
 import aiger_coins as C
@@ -13,7 +14,7 @@ import aiger_discrete
 from bidict import bidict
 from fractions import Fraction
 
-import attr
+from aiger_jani.utils import atom, mux, min_bits, par_compose
 
 
 # Lists all methods in public API.
@@ -21,20 +22,6 @@ __all__ = []
 
 
 BVExpr = BV.UnsignedBVExpr
-Number = "float | int"
-
-
-def min_bits(x: Number) -> int:
-    """Returns minimum number of bits to represent x."""
-    return int(math.ceil(math.log(x)))
-
-
-def atom(n: float, name: str) -> BVExpr:
-    return BV.uatom(min_bits(n), name)
-
-
-def par_compose(seq: Iterable[BV.AIGBV | BVExpr]) -> BV.AIGBV:
-    return reduce(lambda x, y: x.aigbv | y.aigbv, seq).aigbv
 
 
 @attr.s(auto_attribs=True, auto_detect=True, frozen=True)
@@ -210,17 +197,6 @@ def _parse_prob(data):
         NotImplementedError(f"We only support constant probs given as floating point numbers, but got {data}")
 
 
-def _selector(selector_bits, outputs, index = 0):
-    if index == len(outputs) - 1:
-        return outputs[index]
-
-    return BV.ite(
-        selector_bits == BV.uatom(selector_bits.size, index), 
-        outputs[index],                               # True
-        _selector(selector_bits, outputs, index + 1)  # False
-    )
-
-
 def _translate_destinations(data : dict, ctx : AutomatonContext) -> set[str]:
     """
 
@@ -267,18 +243,16 @@ def _translate_destinations(data : dict, ctx : AutomatonContext) -> set[str]:
 
     vars_written_to = list(vars_written_to)
     if len(destinations) > 1:
-        selector = _selector(
-            atom(len(probs), 'sel'),
-            outputs=[
-                BV.uatom(ctx.scope.get_aig_variable(vars_written_to[0]).size,
-                         f"{vars_written_to[0]}-{index}") for index in
-                range(len(destinations))]).with_output(vars_written_to[0]).aigbv
-        for var in vars_written_to[1:]:
-            selector = selector | _selector(atom(len(probs), 'sel'),
-                                            [BV.uatom(ctx.scope.get_aig_variable(var).size, var + "-" + str(index)) for
-                                             index in range(len(destinations))]).with_output(var).aigbv
 
-        edge_circuit >>= selector
+        indices = range(len(destinations))
+
+        def selectors():
+            for var in vars_written_to:
+                size = ctx.scope.get_aig_variable(var).size
+                outputs= [BV.uatom(size, f"{var}-{idx}") for idx in indices]
+                yield mux(outputs, key_name='sel').with_output(var).aigbv
+
+        edge_circuit >>= par_compose(selectors())
         edge_circuit <<= prob_input
 
     return edge_circuit, vars_written_to
@@ -312,21 +286,18 @@ def _translate_edges(data : dict, ctx : AutomatonContext ):
                 edge_circuit = edge_circuit | ctx.scope.get_aig_variable(v.name).with_output(v.name).aigbv
 
         # Rename outputs such that we can later merge them.
-        edge_circuit = edge_circuit['o', { o : o + "-" + str(edge_index) for o in edge_circuit.outputs}]
-        edge_circuits.append(edge_circuit)
+        relabels = {o : f"{o}-{edge_index}" for o in edge_circuit.outputs}
+        edge_circuits.append(edge_circuit['o', relabels])
 
-    aut_circuit = edge_circuits[0]
-    for c in edge_circuits[1:]:
-        aut_circuit = aut_circuit | c
+    def selectors():
+        indices = range(len(edge_circuits))
+        for v in ctx.scope.variables:
+            size = ctx.scope.get_aig_variable(v.name).size
+            outputs = [BV.uatom(size, f"{v.name}-{idx}") for idx in indices]
+            yield mux(outputs, key_name='edge').with_output(v.name).aigbv
 
-    selector = _selector(BV.uatom(int(np.ceil(np.log(len(edge_circuits)))),'edge'),
-                                   [BV.uatom(ctx.scope.get_aig_variable(ctx.scope.variables[0].name).size, ctx.scope.variables[0].name + "-" + str(index)) for index in range(len(edge_circuits))]).with_output(ctx.scope.variables[0].name).aigbv
-    for v in ctx.scope.variables[1:]:
-        selector = selector | _selector(BV.uatom(int(np.ceil(np.log(len(edge_circuits)))), 'edge'),
-                             [BV.uatom(ctx.scope.get_aig_variable(v.name).size, v.name + "-" + str(index)) for index in
-                              range(len(edge_circuits))]).with_output(v.name).aigbv
-
-    return aut_circuit >> selector
+    aut_circuit = par_compose(edge_circuits)
+    return aut_circuit >> par_compose(selectors())
 
 
 def _create_automaton_context(data : dict, scope : JaniScope):
@@ -364,5 +335,3 @@ def translate_jani(data : json):
         raise NotImplementedError("Only support monolithic jani.")
     aut, *_ = data["automata"]
     return _translate_automaton(aut, global_scope.make_local_scope_copy())
-
-
