@@ -21,10 +21,16 @@ __all__ = []
 
 
 BVExpr = BV.UnsignedBVExpr
+Number = "float | int"
+
+
+def min_bits(x: Number) -> int:
+    """Returns minimum number of bits to represent x."""
+    return int(math.ceil(math.log(x)))
 
 
 def atom(n: float, name: str) -> BVExpr:
-    return BV.uatom(math.ceil(math.log(n)), name)
+    return BV.uatom(min_bits(n), name)
 
 
 def par_compose(seq: Iterable[BV.AIGBV | BVExpr]) -> BV.AIGBV:
@@ -34,9 +40,10 @@ def par_compose(seq: Iterable[BV.AIGBV | BVExpr]) -> BV.AIGBV:
 @attr.s(auto_attribs=True, auto_detect=True, frozen=True)
 class JaniIntegerVariable:
     name: str
-    lower_bound: int
+    lower_bound: int  # TODO: maybe tuple instead?
     upper_bound: int
     is_local: bool
+    # TODO: Include initial value here.
 
 
 @attr.s(auto_attribs=True, auto_detect=True, frozen=True)
@@ -67,7 +74,7 @@ class JaniScope:
         self._variables[name] = JaniIntegerVariable(
             name, lower_bound, upper_bound, self._local)
         self._aigvars[name] = BV.atom(
-            wordlen=int(np.ceil(np.log(upper_bound - lower_bound))), 
+            wordlen=min_bits(upper_bound - lower_bound), 
             val=name
         )
 
@@ -115,11 +122,11 @@ class AutomatonContext:
         dist = tuple(probs)
         if dist not in self._distributions:
             name = f"{self._aut_name}_c{len(self._distributions)}"
-            atom = BV.uatom(int(np.ceil(np.log(len(probs)))),name).with_output("sel")
+            sel = atom(len(probs), name).with_output("sel")
             lookup = bidict({index: f'sel-{index}' for index in range(len(probs))})  # invertable dictionary.
             encoder = aiger_discrete.Encoding(decode=lookup.get, encode=lookup.inv.get)
             func = aiger_discrete.from_aigbv(
-                atom.aigbv, input_encodings={name: encoder}
+                sel.aigbv, input_encodings={name: encoder}
             )
             self._distributions[dist] = C.pcirc(func).randomize({name : { f"sel-{index}": prob for index, prob in enumerate(probs)}}).with_coins_id(f"{self._aut_name}_c{len(self._distributions)}")
         return self._distributions[dist]
@@ -235,6 +242,7 @@ def _translate_destinations(data : dict, ctx : AutomatonContext) -> set[str]:
     for d in data:
         for a in d["assignments"]:
             vars_written_to.add(a["ref"])
+
     destinations = []
     for index, d in enumerate(data):
         assert d["location"] == "l"
@@ -242,7 +250,7 @@ def _translate_destinations(data : dict, ctx : AutomatonContext) -> set[str]:
         # TODO add location handling
         for assignment in d["assignments"]:
             var_primed = assignment["ref"]
-            if len(data) > 1:
+            if len(data) > 1:  # TODO: why make this case special?
                 var_primed += f"-{index}"
             updates[var_primed] = _translate_expression(assignment["value"], ctx.scope).with_output(var_primed)
         for var in vars_written_to:
@@ -317,8 +325,8 @@ def _translate_edges(data : dict, ctx : AutomatonContext ):
         selector = selector | _selector(BV.uatom(int(np.ceil(np.log(len(edge_circuits)))), 'edge'),
                              [BV.uatom(ctx.scope.get_aig_variable(v.name).size, v.name + "-" + str(index)) for index in
                               range(len(edge_circuits))]).with_output(v.name).aigbv
-    aut_circuit = aut_circuit >> selector
-    return aut_circuit
+
+    return aut_circuit >> selector
 
 
 def _create_automaton_context(data : dict, scope : JaniScope):
@@ -335,6 +343,7 @@ def _create_automaton_context(data : dict, scope : JaniScope):
 
 
 def _translate_automaton(data : dict, scope : JaniScope):
+    # TODO: Apply feedback loops to make sequential circuit.
     ctx = _create_automaton_context(data, scope)
     _translate_variables(data["variables"], scope)
     return _translate_edges(data["edges"], ctx)
