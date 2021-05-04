@@ -7,10 +7,9 @@ from functools import reduce
 from typing import Any, Sequence
 
 import attr
-import numpy as np
 import aiger_bv as BV
 import aiger_coins as C
-import aiger_discrete
+import aiger_discrete as D
 from bidict import bidict
 from fractions import Fraction
 
@@ -110,12 +109,19 @@ class AutomatonContext:
         if dist not in self._distributions:
             name = f"{self._aut_name}_c{len(self._distributions)}"
             sel = atom(len(probs), name).with_output("sel")
-            lookup = bidict({index: f'sel-{index}' for index in range(len(probs))})  # invertable dictionary.
-            encoder = aiger_discrete.Encoding(decode=lookup.get, encode=lookup.inv.get)
-            func = aiger_discrete.from_aigbv(
-                sel.aigbv, input_encodings={name: encoder}
+            lookup = bidict({idx: f'sel-{idx}' for idx in range(len(probs))})
+            encoder = D.Encoding(
+                decode=lookup.get, 
+                encode=lookup.inv.get
             )
-            self._distributions[dist] = C.pcirc(func).randomize({name : { f"sel-{index}": prob for index, prob in enumerate(probs)}}).with_coins_id(f"{self._aut_name}_c{len(self._distributions)}")
+            func = D.from_aigbv(sel.aigbv, input_encodings={name: encoder})
+
+            name2prob = {name : { f"sel-{index}": prob for index, prob in enumerate(probs)}}
+            coins_id = f"{self._aut_name}_c{len(self._distributions)}"
+
+            self._distributions[dist] = C.pcirc(func) \
+                                         .randomize(name2prob) \
+                                         .with_coins_id(coins_id)
         return self._distributions[dist]
 
     def register_action(self, action : str):
@@ -228,13 +234,19 @@ def _translate_destinations(data : dict, ctx : AutomatonContext) -> set[str]:
             var_primed = assignment["ref"]
             if len(data) > 1:  # TODO: why make this case special?
                 var_primed += f"-{index}"
-            updates[var_primed] = _translate_expression(assignment["value"], ctx.scope).with_output(var_primed)
+
+            val = assignment["value"]
+            updates[var_primed] = _translate_expression(val, ctx.scope) \
+                .with_output(var_primed)
+
         for var in vars_written_to:
             var_primed = var
             if len(data) > 1:
-                var_primed += f"-{index}"
+                var_primed += f"-{index}"  #TODO: why make this case special.
             if var_primed not in updates:
-                updates[var_primed] = ctx.scope.get_aig_variable(var).with_output(var_primed)
+                updates[var_primed] = ctx.scope \
+                                         .get_aig_variable(var) \
+                                         .with_output(var_primed)
 
         update = par_compose(updates.values())
         destinations.append(update)
@@ -278,12 +290,17 @@ def _translate_edges(data : dict, ctx : AutomatonContext ):
         # Additionally, mark whether global variables have been written to.
         for v in ctx.scope.variables:
             if not v.is_local:
-                if v.name in vars_written_to:
-                    edge_circuit = edge_circuit | (BV.source(wordlen=1, value=1, name=v.name + "-mod", signed=False))
-                else:
-                    edge_circuit = edge_circuit | (BV.source(wordlen=1, value=0, name=v.name + "-mod", signed=False))
+                edge_circuit |= BV.source(
+                    wordlen=1,
+                    value=int(v.name in vars_written_to),
+                    name=f'{v.name}-mod', 
+                    signed=False,
+                )
+
             if v.name not in vars_written_to:
-                edge_circuit = edge_circuit | ctx.scope.get_aig_variable(v.name).with_output(v.name).aigbv
+                edge_circuit |= ctx.scope.get_aig_variable(v.name) \
+                                         .with_output(v.name) \
+                                         .aigbv
 
         # Rename outputs such that we can later merge them.
         relabels = {o : f"{o}-{edge_index}" for o in edge_circuit.outputs}
