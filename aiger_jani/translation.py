@@ -288,9 +288,9 @@ def _translate_edges(data: dict, ctx: AutomatonContext):
             edge["destinations"], ctx)
 
         if "guard" in edge:
-            guard_expr = _translate_expression(
-                edge["guard"]["exp"], ctx.scope).with_output("enabled")
-            edge_circuit |= guard_expr.aigbv
+            edge_circuit = edge_circuit.assume(
+                _translate_expression(edge["guard"]["exp"], ctx.scope)
+            )
 
         # Make sure that the edge circuit treats all variables as outputs
         # Additionally, mark whether global variables have been written to.
