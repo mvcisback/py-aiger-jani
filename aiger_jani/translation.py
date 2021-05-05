@@ -264,7 +264,7 @@ def _translate_destinations(data: dict, ctx: AutomatonContext) -> set[str]:
                 yield mux(outputs, key_name='sel').with_output(var).aigbv
 
         edge_circuit >>= par_compose(selectors())
-        edge_circuit <<= prob_input
+        edge_circuit = prob_input >> edge_circuit
 
     return edge_circuit, vars_written_to
 
