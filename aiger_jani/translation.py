@@ -22,6 +22,7 @@ class JaniIntegerVariable:
     lower_bound: int  # TODO: maybe tuple instead?
     upper_bound: int
     is_local: bool
+    initial: int
     # TODO: Include initial value here.
 
 
@@ -32,7 +33,7 @@ class JaniScope:
     _variables: dict[str, JaniIntegerVariable] = attr.ib(factory=dict)
 
     def add_bounded_int_variable(self, name: str, lower_bound: int,
-                                 upper_bound: int) -> None:
+                                 upper_bound: int, init: int) -> None:
         """
         Add bounded integer variable to the scope
         :param name: name of the variable.
@@ -46,8 +47,9 @@ class JaniScope:
             raise ValueError(
                 f"Variable with name {name} already exists in scope.")
 
-        self._variables[name] = JaniIntegerVariable(name, lower_bound,
-                                                    upper_bound, self._local)
+        self._variables[name] = JaniIntegerVariable(
+            name, lower_bound, upper_bound, self._local, init
+        )
         self._aigvars[name] = atom(upper_bound - lower_bound, name)
 
     def make_local_scope_copy(self) -> JaniScope:
@@ -144,7 +146,12 @@ def _translate_variables(data: dict, scope: JaniScope):
                 "This is currently not supported")
         # TODO could be a constant expression, which is not yet supported
         upper_bound = v["type"]["upper-bound"]
-        scope.add_bounded_int_variable(v["name"], lower_bound, upper_bound)
+        if 'initial-value' not in v:
+            raise NotImplementedError(
+                f"Variable {name} must have an initial value."
+            )
+        init = v['initial-value']
+        scope.add_bounded_int_variable(name, lower_bound, upper_bound, init)
 
 
 BINARY_AEX_OPS = {"+": ops.add, "-": ops.sub}
@@ -313,13 +320,11 @@ def _translate_edges(data: dict, ctx: AutomatonContext):
 
 
 def _create_automaton_context(data: dict, scope: JaniScope):
-    locations = {}
-    for loc in data["locations"]:
-        locations[loc["name"]] = False
+    locations = {loc['name']: False for loc in data['locations']}
 
     for loc in data["initial-locations"]:
         if loc not in locations:
-            raise ValueError("Location {loc} is unknown")
+            raise ValueError(f"Location {loc} is unknown")
         locations[loc] = True
 
     return AutomatonContext(data["name"], scope, locations)
@@ -329,7 +334,19 @@ def _translate_automaton(data: dict, scope: JaniScope):
     # TODO: Apply feedback loops to make sequential circuit.
     ctx = _create_automaton_context(data, scope)
     _translate_variables(data["variables"], scope)
-    return _translate_edges(data["edges"], ctx)
+    update = _translate_edges(data["edges"], ctx)
+    wires = []
+    for var in ctx.scope.variables:
+        name = f'{ctx._aut_name}-{var.name}'
+        size = ctx.scope.get_aig_variable(var.name).size
+        wires.append({
+            'input': var.name,
+            'output': var.name,
+            'init': BV.encode_int(size, var.initial, False),
+            'latch': name,
+            'keep_output': name,
+        })
+    return update.loopback(*wires)
 
 
 def translate_file(path):
@@ -346,6 +363,7 @@ def translate_jani(data: json):
         # TODO
         raise NotImplementedError("Only support monolithic jani.")
     aut, *_ = data["automata"]
+    # TODO: make global variables sequential (latches).
     return _translate_automaton(aut, global_scope.make_local_scope_copy())
 
 
