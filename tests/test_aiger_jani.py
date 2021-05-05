@@ -1,3 +1,5 @@
+import aiger_bv as BV
+
 import aiger_jani
 import aiger_jani.translation
 
@@ -7,4 +9,5 @@ def test_smoke():
 
 
 def test_minimdp():
-    aiger_jani.translation.translate_file("tests/minimdp.jani")
+    circ = aiger_jani.translation.translate_file("tests/minimdp.jani")
+    assert circ.outputs == {'main-x', 'main-y'}
