@@ -36,9 +36,9 @@ def atom(n: Number, name: str) -> BVExpr:
     return BV.uatom(min_bits(n), name)
 
 
-def par_compose(seq: Iterable[BV.AIGBV | BVExpr]) -> BV.AIGBV:
+def par_compose(seq: BV.AIGBV) -> BV.AIGBV:
     """Takes parallel composition of a iterable of AIGBVs."""
-    return reduce(lambda x, y: x.aigbv | y.aigbv, seq).aigbv
+    return reduce(op.or_, seq)
 
 
 __all__ = ['mux', 'min_bits', 'par_compose', 'atom']

@@ -236,7 +236,8 @@ def _translate_destinations(data: dict, ctx: AutomatonContext) -> set[str]:
 
             val = assignment["value"]
             updates[var_primed] = _translate_expression(val, ctx.scope) \
-                .with_output(var_primed)
+                .with_output(var_primed) \
+                .aigbv
 
         for var in vars_written_to:
             var_primed = var
@@ -245,7 +246,8 @@ def _translate_destinations(data: dict, ctx: AutomatonContext) -> set[str]:
             if var_primed not in updates:
                 updates[var_primed] = ctx.scope \
                                          .get_aig_variable(var) \
-                                         .with_output(var_primed)
+                                         .with_output(var_primed) \
+                                         .aigbv
 
         update = par_compose(updates.values())
         destinations.append(update)
@@ -254,7 +256,6 @@ def _translate_destinations(data: dict, ctx: AutomatonContext) -> set[str]:
 
     vars_written_to = list(vars_written_to)
     if len(destinations) > 1:
-
         indices = range(len(destinations))
 
         def selectors():
@@ -264,7 +265,9 @@ def _translate_destinations(data: dict, ctx: AutomatonContext) -> set[str]:
                 yield mux(outputs, key_name='sel').with_output(var).aigbv
 
         edge_circuit >>= par_compose(selectors())
-        edge_circuit = prob_input >> edge_circuit
+        edge_circuit <<= prob_input
+    else:
+        edge_circuit = C.pcirc(edge_circuit)  # Deterministic pcirc.
 
     return edge_circuit, vars_written_to
 
@@ -283,10 +286,11 @@ def _translate_edges(data: dict, ctx: AutomatonContext):
 
         edge_circuit, vars_written_to = _translate_destinations(
             edge["destinations"], ctx)
+
         if "guard" in edge:
             guard_expr = _translate_expression(
                 edge["guard"]["exp"], ctx.scope).with_output("enabled")
-            edge_circuit = edge_circuit | guard_expr.aigbv
+            edge_circuit |= guard_expr.aigbv
 
         # Make sure that the edge circuit treats all variables as outputs
         # Additionally, mark whether global variables have been written to.
@@ -303,7 +307,6 @@ def _translate_edges(data: dict, ctx: AutomatonContext):
                 edge_circuit |= ctx.scope.get_aig_variable(v.name) \
                                          .with_output(v.name) \
                                          .aigbv
-
         # Rename outputs such that we can later merge them.
         relabels = {o: f"{o}-{edge_index}" for o in edge_circuit.outputs}
         edge_circuits.append(edge_circuit['o', relabels])
@@ -315,18 +318,17 @@ def _translate_edges(data: dict, ctx: AutomatonContext):
             outputs = [BV.uatom(size, f"{v.name}-{idx}") for idx in indices]
             yield mux(outputs, key_name='edge').with_output(v.name).aigbv
 
-    aut_circuit = par_compose(edge_circuits)
-    return aut_circuit >> par_compose(selectors())
+    return par_compose(edge_circuits) >> par_compose(selectors())
 
 
 def _create_automaton_context(data: dict, scope: JaniScope):
     locations = {loc['name']: False for loc in data['locations']}
+    initial_locations = {loc: True for loc in data['initial-locations']}
 
-    for loc in data["initial-locations"]:
-        if loc not in locations:
-            raise ValueError(f"Location {loc} is unknown")
-        locations[loc] = True
+    if unknown_locations := set(initial_locations) - set(locations):
+        raise ValueError(f'Locations {unknown_locations} are unknown.')
 
+    locations.update(initial_locations)
     return AutomatonContext(data["name"], scope, locations)
 
 
@@ -335,18 +337,18 @@ def _translate_automaton(data: dict, scope: JaniScope):
     ctx = _create_automaton_context(data, scope)
     _translate_variables(data["variables"], scope)
     update = _translate_edges(data["edges"], ctx)
-    wires = []
+    wires, relabels = [], {}
     for var in ctx.scope.variables:
         name = f'{ctx._aut_name}-{var.name}'
-        size = ctx.scope.get_aig_variable(var.name).size
         wires.append({
             'input': var.name,
             'output': var.name,
-            'init': BV.encode_int(size, var.initial, False),
+            'init': var.initial,
             'latch': name,
-            'keep_output': name,
+            'keep_output': True,
         })
-    return update.loopback(*wires)
+        relabels[var.name] = name
+    return update.loopback(*wires)['o', relabels]
 
 
 def translate_file(path):
