@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import json
-import math
 import operator as ops
-from functools import reduce
 from typing import Any, Sequence
 
 import attr
@@ -13,12 +11,7 @@ import aiger_discrete as D
 from bidict import bidict
 from fractions import Fraction
 
-from aiger_jani.utils import atom, mux, min_bits, par_compose
-
-
-# Lists all methods in public API.
-__all__ = []
-
+from aiger_jani.utils import atom, mux, par_compose
 
 BVExpr = BV.UnsignedBVExpr
 
@@ -38,11 +31,8 @@ class JaniScope:
     _aigvars: dict[str, BVExpr] = attr.ib(factory=dict)
     _variables: dict[str, JaniIntegerVariable] = attr.ib(factory=dict)
 
-    def add_bounded_int_variable(
-            self, 
-            name: str, 
-            lower_bound : int,
-            upper_bound : int) -> None:
+    def add_bounded_int_variable(self, name: str, lower_bound: int,
+                                 upper_bound: int) -> None:
         """
         Add bounded integer variable to the scope
         :param name: name of the variable.
@@ -54,15 +44,11 @@ class JaniScope:
         """
         if name in self._variables:
             raise ValueError(
-                f"Variable with name {name} already exists in scope."
-            )
+                f"Variable with name {name} already exists in scope.")
 
-        self._variables[name] = JaniIntegerVariable(
-            name, lower_bound, upper_bound, self._local)
-        self._aigvars[name] = BV.atom(
-            wordlen=min_bits(upper_bound - lower_bound), 
-            val=name
-        )
+        self._variables[name] = JaniIntegerVariable(name, lower_bound,
+                                                    upper_bound, self._local)
+        self._aigvars[name] = atom(upper_bound - lower_bound, name)
 
     def make_local_scope_copy(self) -> JaniScope:
         if self._local:
@@ -74,10 +60,10 @@ class JaniScope:
             variables=self._variables.copy(),
         )
 
-    def get_aig_variable(self, name : str) -> BV.UnsignedBVExpr:
+    def get_aig_variable(self, name: str) -> BV.UnsignedBVExpr:
         return self._aigvars[name]
 
-    def is_local_var(self, name : str) -> bool:
+    def is_local_var(self, name: str) -> bool:
         return self._variables[name].is_local
 
     @property
@@ -96,7 +82,7 @@ class AutomatonContext:
     locations: dict[Any, bool]  # TODO: tighen signature.
     _actions: dict[str, int] = attr.ib(factory=lambda: {"": 0})
     _actions_cnt: dict[str, int] = attr.ib(factory=lambda: {"": 0})
-    _distributions: dict[probs, C.PCirc] = attr.ib(factory=dict)
+    _distributions: dict[Probs, C.PCirc] = attr.ib(factory=dict)
 
     def register_distribution(self, probs):
         """
@@ -110,13 +96,14 @@ class AutomatonContext:
             name = f"{self._aut_name}_c{len(self._distributions)}"
             sel = atom(len(probs), name).with_output("sel")
             lookup = bidict({idx: f'sel-{idx}' for idx in range(len(probs))})
-            encoder = D.Encoding(
-                decode=lookup.get, 
-                encode=lookup.inv.get
-            )
+            encoder = D.Encoding(decode=lookup.get, encode=lookup.inv.get)
             func = D.from_aigbv(sel.aigbv, input_encodings={name: encoder})
 
-            name2prob = {name : { f"sel-{index}": prob for index, prob in enumerate(probs)}}
+            name2prob = {
+                name:
+                {f"sel-{index}": prob
+                 for index, prob in enumerate(probs)}
+            }
             coins_id = f"{self._aut_name}_c{len(self._distributions)}"
 
             self._distributions[dist] = C.pcirc(func) \
@@ -124,7 +111,7 @@ class AutomatonContext:
                                          .with_coins_id(coins_id)
         return self._distributions[dist]
 
-    def register_action(self, action : str):
+    def register_action(self, action: str):
         """
         :param action: The name of the action
         :return: The action index and the internal non-det index
@@ -135,12 +122,12 @@ class AutomatonContext:
         return self._actions[action], self._actions_cnt[action]
 
 
-def _translate_constants(data : dict, scope : JaniScope):
+def _translate_constants(data: dict, scope: JaniScope):
     if data:
         raise NotImplementedError("Constants are not supported yet.")
 
 
-def _translate_variables(data : dict, scope : JaniScope):
+def _translate_variables(data: dict, scope: JaniScope):
     for v in data:
         if "name" not in v:
             raise ValueError("Variable not named")
@@ -149,21 +136,23 @@ def _translate_variables(data : dict, scope : JaniScope):
             raise ValueError("Only bounded variables are supported")
         if v["type"]["base"] != "int":
             raise ValueError("Only integer-typed variables are supported")
-        #TODO could be a constant expression, which is not yet supported
+        # TODO could be a constant expression, which is not yet supported.
         lower_bound = v["type"]["lower-bound"]
         if lower_bound != 0:
-            raise NotImplementedError("Variable {name} has a non-zero lower bound. This is currently not supported")
-        #TODO could be a constant expression, which is not yet supported
+            raise NotImplementedError(
+                f"Variable {name} has a non-zero lower bound."
+                "This is currently not supported")
+        # TODO could be a constant expression, which is not yet supported
         upper_bound = v["type"]["upper-bound"]
         scope.add_bounded_int_variable(v["name"], lower_bound, upper_bound)
 
 
-BINARY_AEX_OPS = {"+" : ops.add, "-" : ops.sub}
-BINARY_BOOL_OPS = {"≤" : ops.le, "≥" : ops.ge}
+BINARY_AEX_OPS = {"+": ops.add, "-": ops.sub}
+BINARY_BOOL_OPS = {"≤": ops.le, "≥": ops.ge}
 BINARY_OPS = BINARY_AEX_OPS | BINARY_BOOL_OPS
 
 
-def _translate_expression(data : dict, scope : JaniScope):
+def _translate_expression(data: dict, scope: JaniScope):
     """
     Takes an expression in JANI json, returns a circuit.
     :param data:  the expression AST
@@ -194,16 +183,19 @@ def _parse_prob(data):
     """
     Parses a probability
 
-    :param data: A json JANI representation of the expression that gives the probability.
+    :param data: A json JANI representation of the expression that
+      gives the probability.
     :return: A fraction
     """
     if isinstance(data, float):
         return Fraction(data)
     else:
-        NotImplementedError(f"We only support constant probs given as floating point numbers, but got {data}")
+        NotImplementedError(
+            "We only support constant probs given as floating point"
+            f"numbers, but got {data}")
 
 
-def _translate_destinations(data : dict, ctx : AutomatonContext) -> set[str]:
+def _translate_destinations(data: dict, ctx: AutomatonContext) -> set[str]:
     """
 
     :param data: Describes the destinations.
@@ -242,7 +234,7 @@ def _translate_destinations(data : dict, ctx : AutomatonContext) -> set[str]:
         for var in vars_written_to:
             var_primed = var
             if len(data) > 1:
-                var_primed += f"-{index}"  #TODO: why make this case special.
+                var_primed += f"-{index}"  # TODO: why make this case special.
             if var_primed not in updates:
                 updates[var_primed] = ctx.scope \
                                          .get_aig_variable(var) \
@@ -261,7 +253,7 @@ def _translate_destinations(data : dict, ctx : AutomatonContext) -> set[str]:
         def selectors():
             for var in vars_written_to:
                 size = ctx.scope.get_aig_variable(var).size
-                outputs= [BV.uatom(size, f"{var}-{idx}") for idx in indices]
+                outputs = [BV.uatom(size, f"{var}-{idx}") for idx in indices]
                 yield mux(outputs, key_name='sel').with_output(var).aigbv
 
         edge_circuit >>= par_compose(selectors())
@@ -270,20 +262,23 @@ def _translate_destinations(data : dict, ctx : AutomatonContext) -> set[str]:
     return edge_circuit, vars_written_to
 
 
-def _translate_edges(data : dict, ctx : AutomatonContext ):
-    #TODO handle notion of actions
+def _translate_edges(data: dict, ctx: AutomatonContext):
+    # TODO handle notion of actions
     # max_internal_nondet_bits = int(np.ceil(np.log(len(data))))
-    # max_action_bits = int(np.ceil(np.log(len(data) + 1))) # +1 due to reserving space for silent act
+    # max_action_bits = int(np.ceil(np.log(len(data) + 1))) # +1 due
+    # to reserving space for silent act
     #
     # select_edge_expr = []
-    edge_circuits =  []
+    edge_circuits = []
     for edge_index, edge in enumerate(data):
-        #TODO add location handling
+        # TODO add location handling
         assert edge["location"] == "l"
 
-        edge_circuit, vars_written_to = _translate_destinations(edge["destinations"], ctx)
+        edge_circuit, vars_written_to = _translate_destinations(
+            edge["destinations"], ctx)
         if "guard" in edge:
-            guard_expr = _translate_expression(edge["guard"]["exp"], ctx.scope).with_output("enabled")
+            guard_expr = _translate_expression(
+                edge["guard"]["exp"], ctx.scope).with_output("enabled")
             edge_circuit = edge_circuit | guard_expr.aigbv
 
         # Make sure that the edge circuit treats all variables as outputs
@@ -293,7 +288,7 @@ def _translate_edges(data : dict, ctx : AutomatonContext ):
                 edge_circuit |= BV.source(
                     wordlen=1,
                     value=int(v.name in vars_written_to),
-                    name=f'{v.name}-mod', 
+                    name=f'{v.name}-mod',
                     signed=False,
                 )
 
@@ -303,7 +298,7 @@ def _translate_edges(data : dict, ctx : AutomatonContext ):
                                          .aigbv
 
         # Rename outputs such that we can later merge them.
-        relabels = {o : f"{o}-{edge_index}" for o in edge_circuit.outputs}
+        relabels = {o: f"{o}-{edge_index}" for o in edge_circuit.outputs}
         edge_circuits.append(edge_circuit['o', relabels])
 
     def selectors():
@@ -317,20 +312,20 @@ def _translate_edges(data : dict, ctx : AutomatonContext ):
     return aut_circuit >> par_compose(selectors())
 
 
-def _create_automaton_context(data : dict, scope : JaniScope):
+def _create_automaton_context(data: dict, scope: JaniScope):
     locations = {}
-    for l in data["locations"]:
-        locations[l["name"]] = False
+    for loc in data["locations"]:
+        locations[loc["name"]] = False
 
-    for l in data["initial-locations"]:
-        if l not in locations:
-            raise ValueError("Location {l} is unknown")
-        locations[l] = True
+    for loc in data["initial-locations"]:
+        if loc not in locations:
+            raise ValueError("Location {loc} is unknown")
+        locations[loc] = True
 
     return AutomatonContext(data["name"], scope, locations)
 
 
-def _translate_automaton(data : dict, scope : JaniScope):
+def _translate_automaton(data: dict, scope: JaniScope):
     # TODO: Apply feedback loops to make sequential circuit.
     ctx = _create_automaton_context(data, scope)
     _translate_variables(data["variables"], scope)
@@ -343,7 +338,7 @@ def translate_file(path):
     return translate_jani(jani_enc)
 
 
-def translate_jani(data : json):
+def translate_jani(data: json):
     global_scope = JaniScope()
     _translate_constants(data["constants"], global_scope)
     _translate_variables(data["variables"], global_scope)
@@ -352,3 +347,6 @@ def translate_jani(data : json):
         raise NotImplementedError("Only support monolithic jani.")
     aut, *_ = data["automata"]
     return _translate_automaton(aut, global_scope.make_local_scope_copy())
+
+
+__all__ = ['translate_file', 'translate_jani']

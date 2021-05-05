@@ -16,13 +16,14 @@ Number = "float | int"
 def masked_outputs(outputs, key_name: str):
     size = min_bits(len(outputs))
     key = BV.uatom(size, key_name)
-    
+
     for idx, output in enumerate(outputs):
         mask = (key == idx).repeat(output.size)
         yield output & mask
 
 
 def mux(outputs: Sequence[BVExpr], *, key_name: str = "mux") -> BVExpr:
+    """Create multiplexer to select between outputs."""
     return reduce(op.or_, masked_outputs(outputs, key_name))
 
 
@@ -36,8 +37,8 @@ def atom(n: Number, name: str) -> BVExpr:
 
 
 def par_compose(seq: Iterable[BV.AIGBV | BVExpr]) -> BV.AIGBV:
+    """Takes parallel composition of a iterable of AIGBVs."""
     return reduce(lambda x, y: x.aigbv | y.aigbv, seq).aigbv
-
 
 
 __all__ = ['mux', 'min_bits', 'par_compose', 'atom']
