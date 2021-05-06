@@ -1,5 +1,3 @@
-import aiger_bv as BV
-
 import aiger_jani
 import aiger_jani.translation
 
