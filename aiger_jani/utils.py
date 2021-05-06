@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Sequence, Iterable
+from typing import Sequence
 
 import operator as op
 from functools import reduce
