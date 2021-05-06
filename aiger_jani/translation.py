@@ -325,6 +325,7 @@ def _translate_edges(data: dict, ctx: AutomatonContext):
 
     return update
 
+
 def _create_automaton_context(data: dict, scope: JaniScope):
     locations = {loc['name']: False for loc in data['locations']}
     initial_locations = {loc: True for loc in data['initial-locations']}
