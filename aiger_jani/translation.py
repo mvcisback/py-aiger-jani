@@ -279,17 +279,13 @@ def _translate_edges(data: dict, ctx: AutomatonContext):
     #
     # select_edge_expr = []
     edge_circuits = []
+    edge_expr = atom(len(data), 'edge')
     for edge_index, edge in enumerate(data):
         # TODO add location handling
         assert edge["location"] == "l"
 
         edge_circuit, vars_written_to = _translate_destinations(
             edge["destinations"], ctx)
-
-        if "guard" in edge:
-            edge_circuit = edge_circuit.assume(
-                _translate_expression(edge["guard"]["exp"], ctx.scope)
-            )
 
         # Make sure that the edge circuit treats all variables as outputs
         # Additionally, mark whether global variables have been written to.
@@ -317,8 +313,17 @@ def _translate_edges(data: dict, ctx: AutomatonContext):
             outputs = [BV.uatom(size, f"{v.name}-{idx}") for idx in indices]
             yield mux(outputs, key_name='edge').with_output(v.name).aigbv
 
-    return par_compose(edge_circuits) >> par_compose(selectors())
+    update = par_compose(edge_circuits) >> par_compose(selectors())
 
+    # Add guards
+    edge_expr = atom(len(edge_circuits), 'edge')
+    for edge_idx, edge in enumerate(data):
+        if "guard" not in edge:
+            continue
+        guard_expr = _translate_expression(edge["guard"]["exp"], ctx.scope)
+        update = update.assume((edge_expr != edge_idx) | guard_expr)
+
+    return update
 
 def _create_automaton_context(data: dict, scope: JaniScope):
     locations = {loc['name']: False for loc in data['locations']}

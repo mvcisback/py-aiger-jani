@@ -427,7 +427,7 @@ pyrsistent = ">=0.17,<0.18"
 
 [[package]]
 name = "py-aiger-coins"
-version = "3.3.0"
+version = "3.3.2"
 description = "Library for creating circuits that encode discrete distributions."
 category = "main"
 optional = false
@@ -976,8 +976,8 @@ py-aiger-bv = [
     {file = "py_aiger_bv-4.7.0-py3-none-any.whl", hash = "sha256:7123e6659e80bb77b8c442cc56986d3367707383346eb50ffbe2d1d1b759a932"},
 ]
 py-aiger-coins = [
-    {file = "py-aiger-coins-3.3.0.tar.gz", hash = "sha256:f596b05640c376ee7abf50b3127eff45aaa38765892584428893bbd142058136"},
-    {file = "py_aiger_coins-3.3.0-py3-none-any.whl", hash = "sha256:0672cf1254a9c49ca1ae6377d5e40aeb904663ecfb3a721e74cc5bb39df23214"},
+    {file = "py-aiger-coins-3.3.2.tar.gz", hash = "sha256:639b8a503ba1f2fcd9974bd58e6a5e03258e09e0e955b04b28a856238dfa4b1d"},
+    {file = "py_aiger_coins-3.3.2-py3-none-any.whl", hash = "sha256:a05400932673de7942dc1318231835a45089acaae9c9a4bd6cea5cf2a9db2f18"},
 ]
 py-aiger-dfa = [
     {file = "py-aiger-dfa-0.3.1.tar.gz", hash = "sha256:05f31bf5ad42781fed6a2ca228059a35467cda3b4f1de0f4d98b0482be90fa00"},
