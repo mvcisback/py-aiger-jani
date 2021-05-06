@@ -23,7 +23,6 @@ class JaniIntegerVariable:
     upper_bound: int
     is_local: bool
     initial: int
-    # TODO: Include initial value here.
 
 
 @attr.s(auto_attribs=True, auto_detect=True, frozen=True)
