@@ -9,12 +9,12 @@ import aiger_jani.translation
 
 
 def test_minimdp():
+    x, y = BV.uatom(2, 'main-x'), BV.uatom(2, 'main-y')
     circ = aiger_jani.translation.translate_file("tests/minimdp.jani")
     assert circ.outputs == {'main-x', 'main-y'}
 
     # Fix edge and check probability of ending on x=3 given valid run.
-    query = circ
-    query <<= BV.source(1, 0, 'edge', False)
+    query = circ << BV.source(1, 0, 'edge', False)
     query >>= BV.sink(2, ['main-y'])
     query >>= (BV.uatom(2, 'main-x') == 3).aigbv
 
@@ -24,8 +24,7 @@ def test_minimdp():
 
     # Randomize edge and check probability of ending on x=y given valid run.
     query = circ.randomize({'edge': {0: 0.5, 1: 0.5}})
-
-    query >>= (BV.uatom(2, 'main-x') == BV.uatom(2, 'main-y')).aigbv
+    query >>= (x == y).aigbv
 
     assert infer.prob(query.unroll(1, only_last_outputs=True)) == approx(1/4)
     assert infer.prob(query.unroll(2, only_last_outputs=True)) == approx(1/4)
