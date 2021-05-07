@@ -8,23 +8,6 @@ import aiger_jani
 import aiger_jani.translation
 
 
-def test_smoke():
-    pass
-
-
-def estimate_prob(query, N=10_000):
-    assert len(query.outputs) == 1
-    output, *_ = query.outputs
-    count = 0
-    for _ in range(N):
-        try:
-            count += query({})[0][output]
-        except:
-            N -= 1
-        
-    return count / N
-
-
 def test_minimdp():
     circ = aiger_jani.translation.translate_file("tests/minimdp.jani")
     assert circ.outputs == {'main-x', 'main-y'}
@@ -44,6 +27,6 @@ def test_minimdp():
 
     query >>= (BV.uatom(2, 'main-x') == BV.uatom(2, 'main-y')).aigbv
 
-    assert infer.prob(query.unroll(1, only_last_outputs=True)) == approx(1/4, abs=1e-2)
-    assert infer.prob(query.unroll(2, only_last_outputs=True)) == approx(1/4, abs=1e-2)
+    assert infer.prob(query.unroll(1, only_last_outputs=True)) == approx(1/4)
+    assert infer.prob(query.unroll(2, only_last_outputs=True)) == approx(1/4)
     assert infer.prob(query.unroll(3, only_last_outputs=True)) == approx(13/38)
