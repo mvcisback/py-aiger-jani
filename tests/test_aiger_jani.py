@@ -3,14 +3,12 @@ from pytest import approx
 import aiger_bv as BV
 from aiger_coins import infer
 
-
-import aiger_jani
-import aiger_jani.translation
+from aiger_jani import translate_file
 
 
 def test_minimdp():
     x, y = BV.uatom(2, 'main-x'), BV.uatom(2, 'main-y')
-    circ = aiger_jani.translation.translate_file("tests/minimdp.jani")
+    circ = translate_file("tests/minimdp.jani")
     assert circ.outputs == {'main-x', 'main-y'}
 
     # Fix edge and check probability of ending on x=3 given valid run.
