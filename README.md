@@ -38,6 +38,26 @@ run:
 
 # Usage
 
+The main entry points for using this library are the `translate_file`
+and `translate_jani` functions which convert `jani` files to `AIG`s
+represented using the [`py-aiger`](https://github.com/mvcisback/py-aiger) ecosystem (particularly the
+[`py-aiger-coins`](https://github.com/mvcisback/py-aiger) package.
+
+
 ```python
-example = TODO
+from aiger_jani import translate_file
+
+circ = translate_file("tests/minimdp.jani")
+
+# Use py-aiger-coins to test Pr(x = y) after 3 steps,
+# given that actions applied uniformly randomly.
+
+import aiger_bv as BV
+from aiger_coins import infer
+
+x, y = BV.uatom(2, 'main-x'), BV.uatom(2, 'main-y')
+query = circ.randomize({'edge': {0: 0.5, 1: 0.5}})
+query >>= (x == y).aigbv
+query = query.unroll(3, only_last_outputs=True)
+print(infer.prob(query))  # Output: 0.3421..
 ```
