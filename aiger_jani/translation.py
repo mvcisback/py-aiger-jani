@@ -208,30 +208,16 @@ def _translate_destinations(data: dict, ctx: AutomatonContext) -> set[str]:
     :param ctx:
     :return:
     """
-    # Create coin flipping part.
-    if len(data) == 1:
-        pass
-    else:
-        probs = []
-        for d in data:
-            probs.append(_parse_prob(d["probability"]["exp"]))
-        prob_input = ctx.register_distribution(probs)
-        # TODO consider what to do with the additional output of prob_input
 
-    vars_written_to = set()
-    for d in data:
-        for a in d["assignments"]:
-            vars_written_to.add(a["ref"])
+    vars_written_to = {a["ref"] for d in data for a in d["assignments"]}
 
     destinations = []
     for index, d in enumerate(data):
-        assert d["location"] == "l"
+        assert d["location"] == "l"  # TODO add location handling
+
         updates = {}
-        # TODO add location handling
         for assignment in d["assignments"]:
-            var_primed = assignment["ref"]
-            if len(data) > 1:  # TODO: why make this case special?
-                var_primed += f"-{index}"
+            var_primed = f"{assignment['ref']}-{index}"
 
             val = assignment["value"]
             updates[var_primed] = _translate_expression(val, ctx.scope) \
@@ -239,21 +225,19 @@ def _translate_destinations(data: dict, ctx: AutomatonContext) -> set[str]:
                 .aigbv
 
         for var in vars_written_to:
-            var_primed = var
-            if len(data) > 1:
-                var_primed += f"-{index}"  # TODO: why make this case special.
+            var_primed = f"{var}-{index}"
             if var_primed not in updates:
-                updates[var_primed] = ctx.scope \
-                                         .get_aig_variable(var) \
-                                         .with_output(var_primed) \
-                                         .aigbv
+                updates[var_primed] = ctx.scope.get_aig_variable(var) \
+                                               .with_output(var_primed) \
+                                               .aigbv
 
         update = par_compose(updates.values())
         destinations.append(update)
 
     edge_circuit = par_compose(destinations)
+    edge_circuit = C.pcirc(edge_circuit)  # Force probabilistic circuit.
 
-    vars_written_to = list(vars_written_to)
+    vars_written_to = list(vars_written_to)  # Fix ordering.
     if len(destinations) > 1:
         indices = range(len(destinations))
 
@@ -263,11 +247,16 @@ def _translate_destinations(data: dict, ctx: AutomatonContext) -> set[str]:
                 outputs = [BV.uatom(size, f"{var}-{idx}") for idx in indices]
                 yield mux(outputs, key_name='sel').with_output(var).aigbv
 
+        # Create coin flipping part.
+        probs = [_parse_prob(d["probability"]["exp"]) for d in data]
+        prob_input = ctx.register_distribution(probs)
+        # TODO consider what to do with the additional output of
+        # prob_input.
+
         edge_circuit >>= par_compose(selectors())
         edge_circuit <<= prob_input
-    else:
-        edge_circuit = C.pcirc(edge_circuit)  # Deterministic pcirc.
 
+    edge_circuit = C.pcirc(edge_circuit)  # Force probabilistic circuit.
     return edge_circuit, vars_written_to
 
 
