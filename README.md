@@ -44,6 +44,9 @@ represented using the [`py-aiger`](https://github.com/mvcisback/py-aiger) ecosys
 [`py-aiger-coins`](https://github.com/mvcisback/py-aiger) package.
 
 
+Below is an example usage of the `translate_file` function and
+`py-aiger-coins` to perform probabilistic inference.
+
 ```python
 from aiger_jani import translate_file
 
@@ -61,3 +64,6 @@ query >>= (x == y).aigbv
 query = query.unroll(3, only_last_outputs=True)
 print(infer.prob(query))  # Output: 0.3421..
 ```
+
+The `translate_jani` method is analogous, but takes a jani file parsed
+into a dictionary using the `json` module.
