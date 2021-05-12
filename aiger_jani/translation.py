@@ -18,7 +18,18 @@ BVExpr = BV.UnsignedBVExpr
 
 
 @attr.s(auto_attribs=True, auto_detect=True, frozen=True)
-class JaniIntegerVariable:
+class JaniVariable:
+    pass  # TODO move stuff here
+
+
+@attr.s(auto_attribs=True, auto_detect=True, frozen=True)
+class JaniBooleanVariable(JaniVariable):
+    name: str
+    initial: bool
+
+
+@attr.s(auto_attribs=True, auto_detect=True, frozen=True)
+class JaniIntegerVariable(JaniVariable):
     name: str
     lower_bound: int  # TODO: maybe tuple instead?
     upper_bound: int
@@ -51,8 +62,15 @@ class JaniRealConstant(JaniConstant):
 class JaniScope:
     _local: bool = False
     _aigvars: dict[str, BVExpr] = attr.ib(factory=dict)
-    _variables: dict[str, JaniIntegerVariable] = attr.ib(factory=dict)
+    _variables: dict[str, JaniVariable] = attr.ib(factory=dict)
     _constants: dict[str, JaniConstant] = attr.ib(factory=dict)
+
+    def add_boolean_variable(self, name: str, init: bool):
+        if name in self._variables:
+            raise ValueError(
+                f"Variable with name {name} already exists in scope.")
+        self._variables[name] = JaniBooleanVariable(name, init)
+        self._aigvars[name] = atom(1, name)
 
     def add_bounded_int_variable(self, name: str, lower_bound: int,
                                  upper_bound: int, init: int) -> None:
@@ -180,24 +198,39 @@ def _translate_variables(data: dict, scope: JaniScope):
         if "name" not in v:
             raise ValueError("Variable not named")
         name = v["name"]
-        if v["type"]["kind"] != "bounded":
-            raise ValueError("Only bounded variables are supported")
-        if v["type"]["base"] != "int":
-            raise ValueError("Only integer-typed variables are supported")
-        # TODO could be a constant expression, which is not yet supported.
-        lower_bound = v["type"]["lower-bound"]
-        if lower_bound != 0:
-            raise NotImplementedError(
-                f"Variable {name} has a non-zero lower bound."
-                "This is currently not supported")
-        # TODO could be a constant expression, which is not yet supported
-        upper_bound = v["type"]["upper-bound"]
-        if 'initial-value' not in v:
-            raise NotImplementedError(
-                f"Variable {name} must have an initial value."
-            )
-        init = v['initial-value']
-        scope.add_bounded_int_variable(name, lower_bound, upper_bound, init)
+        if isinstance(v["type"], str):
+            if v["type"] != "bool":
+                raise ValueError(
+                    f"Booleans are the only plain data type supported, but got {v['type']} for variable {name} (bounded inters are extended types).")
+            if 'initial-value' not in v:
+                raise NotImplementedError(
+                    f"Variable {name} must have an initial value."
+                )
+            init = v['initial-value']
+            scope.add_boolean_variable(name, init)
+        elif isinstance(v["type"], dict):
+            if v["type"]["kind"] != "bounded":
+                raise ValueError(
+                    "Bounded integers are the only extended variable type supported")
+            if v["type"]["base"] != "int":
+                raise ValueError("Only integer-typed variables are supported")
+            # TODO could be a constant expression, which is not yet supported.
+            lower_bound = v["type"]["lower-bound"]
+            if lower_bound != 0:
+                raise NotImplementedError(
+                    f"Variable {name} has a non-zero lower bound."
+                    "This is currently not supported")
+            # TODO could be a constant expression, which is not yet supported
+            upper_bound = v["type"]["upper-bound"]
+            if 'initial-value' not in v:
+                raise NotImplementedError(
+                    f"Variable {name} must have an initial value."
+                )
+            init = v['initial-value']
+            scope.add_bounded_int_variable(name, lower_bound, upper_bound, init)
+        else:
+            raise ValueError(
+                f"Type of variable {name} must be a base type or an extended type")
 
 
 BINARY_AEX_OPS = {"+": ops.add, "-": ops.sub}
