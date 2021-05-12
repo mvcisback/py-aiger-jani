@@ -34,13 +34,17 @@ class JaniConstant:
 @attr.s(auto_attribs=True, auto_detect=True, frozen=True)
 class JaniIntegerConstant(JaniConstant):
     name: str
-    value: int  # TODO: Initial values can be expressions... or not have an initial value at all.
+    value: int
+    # TODO: Initial values can be expressions...
+    # or not have an initial value at all.
 
 
 @attr.s(auto_attribs=True, auto_detect=True, frozen=True)
 class JaniRealConstant(JaniConstant):
     name: str
-    value: float  # TODO: Initial values can be expressions... or not have an initial value at all.
+    value: float
+    # TODO: Initial values can be expressions...
+    # or not have an initial value at all.
 
 
 @attr.s(auto_attribs=True, auto_detect=True, frozen=True)
@@ -70,20 +74,20 @@ class JaniScope:
         )
         self._aigvars[name] = atom(upper_bound - lower_bound, name)
 
-    def add_constant(self, name, type, value) -> None:
-        assert type in ["real", "int"]
+    def add_constant(self, name: str, tp: str, value: str) -> None:
+        assert tp in ["real", "int"], f"Got type {tp}"
         if name in self._constants:
             raise ValueError(
                 f"Constant with name {name} already exists in scope.")
-        if type == "int":
+        if tp == "int":
             self._constants[name] = JaniIntegerConstant(name, value)
-        elif type == "real":
+        elif tp == "real":
             self._constants[name] = JaniRealConstant(name, value)
         else:
             assert False
 
-        #TODO We current do not do anything useful with constants,
-        # We just register them to at least provide a proper not supported message.
+        # TODO We current do not do anything useful with constants,
+        # We just register them to provide a proper not supported message.
 
     def make_local_scope_copy(self) -> JaniScope:
         if self._local:
