@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import operator as ops
 from typing import Any, Sequence
 
@@ -208,8 +209,8 @@ def _translate_expression(data: dict, scope: JaniScope):
     :return: An expression in py-aiger-bv
     """
     if isinstance(data, int):
-        # TODO replace the constant two here.
-        return BV.uatom(2, data)
+        nr_bits = math.ceil(math.log(data, 2)) + 1
+        return BV.uatom(nr_bits, data)
     if isinstance(data, str):
         return scope.get_aig_variable(data)
 
