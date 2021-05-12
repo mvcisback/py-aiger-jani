@@ -26,10 +26,28 @@ class JaniIntegerVariable:
 
 
 @attr.s(auto_attribs=True, auto_detect=True, frozen=True)
+class JaniConstant:
+    pass
+
+
+@attr.s(auto_attribs=True, auto_detect=True, frozen=True)
+class JaniIntegerConstant(JaniConstant):
+    name: str
+    value: int  # TODO: Initial values can be expressions... or not have an initial value at all.
+
+
+@attr.s(auto_attribs=True, auto_detect=True, frozen=True)
+class JaniRealConstant(JaniConstant):
+    name: str
+    value: float  # TODO: Initial values can be expressions... or not have an initial value at all.
+
+
+@attr.s(auto_attribs=True, auto_detect=True, frozen=True)
 class JaniScope:
     _local: bool = False
     _aigvars: dict[str, BVExpr] = attr.ib(factory=dict)
     _variables: dict[str, JaniIntegerVariable] = attr.ib(factory=dict)
+    _constants: dict[str, JaniConstant] = attr.ib(factory=dict)
 
     def add_bounded_int_variable(self, name: str, lower_bound: int,
                                  upper_bound: int, init: int) -> None:
@@ -50,6 +68,21 @@ class JaniScope:
             name, lower_bound, upper_bound, self._local, init
         )
         self._aigvars[name] = atom(upper_bound - lower_bound, name)
+
+    def add_constant(self, name, type, value) -> None:
+        assert type in ["real", "int"]
+        if name in self._constants:
+            raise ValueError(
+                f"Constant with name {name} already exists in scope.")
+        if type == "int":
+            self._constants[name] = JaniIntegerConstant(name, value)
+        elif type == "real":
+            self._constants[name] = JaniRealConstant(name, value)
+        else:
+            assert False
+
+        #TODO We current do not do anything useful with constants,
+        # We just register them to at least provide a proper not supported message.
 
     def make_local_scope_copy(self) -> JaniScope:
         if self._local:
@@ -124,8 +157,17 @@ class AutomatonContext:
 
 
 def _translate_constants(data: dict, scope: JaniScope):
-    if data:
-        raise NotImplementedError("Constants are not supported yet.")
+    for v in data:
+        if "name" not in v:
+            raise ValueError("Constant not named")
+        name = v["name"]
+        if v["type"] not in ["int", "real"]:
+            raise NotImplementedError("Only integer and real-valued constants are supported")
+        type = v["type"]
+        if "value" not in v:
+            raise NotImplementedError("We currently expect a fixed value for constants")
+        value = v["value"]
+        scope.add_constant(name, type, value)
 
 
 def _translate_variables(data: dict, scope: JaniScope):
