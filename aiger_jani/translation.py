@@ -221,10 +221,16 @@ def _translate_expression(data: dict, scope: JaniScope):
     except KeyError:
         raise NotImplementedError(f"{data} not supported")
 
-    return op(
-        _translate_expression(data["left"], scope),
-        _translate_expression(data["right"], scope),
-    )
+    left_subexpr = _translate_expression(data["left"], scope)
+    right_subexpr = _translate_expression(data["right"], scope)
+
+    # Match size
+    if left_subexpr.size < right_subexpr.size:
+        left_subexpr = left_subexpr.resize(right_subexpr.size)
+    elif right_subexpr.size < left_subexpr.size:
+        right_subexpr = right_subexpr.resize(left_subexpr.size)
+
+    return op(left_subexpr, right_subexpr)
 
 
 def _parse_prob(data):
