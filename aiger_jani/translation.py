@@ -257,7 +257,7 @@ def _translate_expression(data: dict, scope: JaniScope):
     try:
         op = BINARY_OPS[data["op"]]
     except KeyError:
-        raise NotImplementedError(f"{data} not supported")
+        raise NotImplementedError(f"Operator {data['op']} not supported")
 
     left_subexpr = _translate_expression(data["left"], scope)
     right_subexpr = _translate_expression(data["right"], scope)
