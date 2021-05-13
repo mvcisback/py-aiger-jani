@@ -27,3 +27,7 @@ def test_minimdp():
     assert infer.prob(query.unroll(1, only_last_outputs=True)) == approx(1/4)
     assert infer.prob(query.unroll(2, only_last_outputs=True)) == approx(1/4)
     assert infer.prob(query.unroll(3, only_last_outputs=True)) == approx(13/38)
+
+def test_obstacleflat():
+    circ = translate_file("tests/jani_files/obstacle-flat-nonslip.jani")
+    circ = translate_file("tests/jani_files/obstacle-flat.jani")
