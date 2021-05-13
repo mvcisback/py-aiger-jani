@@ -25,6 +25,7 @@ class JaniVariable:
 @attr.s(auto_attribs=True, auto_detect=True, frozen=True)
 class JaniBooleanVariable(JaniVariable):
     name: str
+    is_local: bool
     initial: bool
 
 
@@ -69,7 +70,7 @@ class JaniScope:
         if name in self._variables:
             raise ValueError(
                 f"Variable with name {name} already exists in scope.")
-        self._variables[name] = JaniBooleanVariable(name, init)
+        self._variables[name] = JaniBooleanVariable(name, self._local, init)
         self._aigvars[name] = atom(1, name)
 
     def add_bounded_int_variable(self, name: str, lower_bound: int,
