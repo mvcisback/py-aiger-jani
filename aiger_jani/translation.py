@@ -65,16 +65,21 @@ class JaniScope:
     _aigvars: dict[str, BVExpr] = attr.ib(factory=dict)
     _variables: dict[str, JaniVariable] = attr.ib(factory=dict)
     _constants: dict[str, JaniConstant] = attr.ib(factory=dict)
+    _transient_vars: dict[str, JaniVariable] = attr.ib(factory=dict)
 
-    def add_boolean_variable(self, name: str, init: bool):
+    def add_boolean_variable(self, name: str, init: bool, is_transient: bool):
         if name in self._variables:
             raise ValueError(
                 f"Variable with name {name} already exists in scope.")
-        self._variables[name] = JaniBooleanVariable(name, self._local, init)
-        self._aigvars[name] = atom(1, name)
+        variable = JaniBooleanVariable(name, self._local, init)
+        if not is_transient:
+            self._variables[name] = variable
+            self._aigvars[name] = atom(1, name)
+        else:
+            pass # TODO support transient variables
 
     def add_bounded_int_variable(self, name: str, lower_bound: int,
-                                 upper_bound: int, init: int) -> None:
+                                 upper_bound: int, init: int, is_transient: bool) -> None:
         """
         Add bounded integer variable to the scope
         :param name: name of the variable.
@@ -88,10 +93,15 @@ class JaniScope:
             raise ValueError(
                 f"Variable with name {name} already exists in scope.")
 
-        self._variables[name] = JaniIntegerVariable(
+        variable = JaniIntegerVariable(
             name, lower_bound, upper_bound, self._local, init
         )
-        self._aigvars[name] = atom(upper_bound - lower_bound, name)
+        if not is_transient:
+            self._variables[name] = variable
+            self._aigvars[name] = atom(upper_bound - lower_bound, name)
+        else:
+            pass # TODO support transient variables
+
 
     def add_constant(self, name: str, tp: str, value: str) -> None:
         assert tp in ["real", "int"], f"Got type {tp}"
@@ -208,7 +218,11 @@ def _translate_variables(data: dict, scope: JaniScope):
                     f"Variable {name} must have an initial value."
                 )
             init = v['initial-value']
-            scope.add_boolean_variable(name, init)
+            if "transient" in v:
+                is_transient = v["transient"]
+            else:
+                is_transient = False
+            scope.add_boolean_variable(name, init, is_transient)
         elif isinstance(v["type"], dict):
             if v["type"]["kind"] != "bounded":
                 raise ValueError(
@@ -228,7 +242,12 @@ def _translate_variables(data: dict, scope: JaniScope):
                     f"Variable {name} must have an initial value."
                 )
             init = v['initial-value']
-            scope.add_bounded_int_variable(name, lower_bound, upper_bound, init)
+            if "transient" in v:
+                is_transient = v["transient"]
+            else:
+                is_transient = False
+            scope.add_bounded_int_variable(
+                name, lower_bound, upper_bound, init, is_transient)
         else:
             raise ValueError(
                 f"Type of variable {name} must be a base type or an extended type")
