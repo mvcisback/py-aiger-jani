@@ -274,7 +274,7 @@ def _translate_expression(data: dict, scope: JaniScope):
     return op(left_subexpr, right_subexpr)
 
 
-def _parse_prob(data):
+def _parse_prob(data) -> Fraction:
     """
     Parses a probability
 
@@ -284,8 +284,12 @@ def _parse_prob(data):
     """
     if isinstance(data, float):
         return Fraction(data)
+    elif isinstance(data, int):
+        return Fraction(data)
+    elif isinstance(data, dict) and "op" in data:
+        return Fraction(data["left"], data["right"])
     else:
-        NotImplementedError(
+        raise NotImplementedError(
             "We only support constant probs given as floating point"
             f"numbers, but got {data}")
 
@@ -303,7 +307,11 @@ def _translate_destinations(data: dict, ctx: AutomatonContext) -> set[str]:
     else:
         probs = []
         for d in data:
-            probs.append(_parse_prob(d["probability"]["exp"]))
+            if "probability" not in d:
+                probs.append(1)
+            else:
+                probability = d["probability"]["exp"]
+                probs.append(_parse_prob(probability))
         prob_input = ctx.register_distribution(probs)
         # TODO consider what to do with the additional output of prob_input
 
