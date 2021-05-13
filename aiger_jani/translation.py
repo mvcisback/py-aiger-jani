@@ -437,7 +437,8 @@ def _create_automaton_context(data: dict, scope: JaniScope):
 def _translate_automaton(data: dict, scope: JaniScope):
     # TODO: Apply feedback loops to make sequential circuit.
     ctx = _create_automaton_context(data, scope)
-    _translate_variables(data["variables"], scope)
+    if "variables" in data:
+        _translate_variables(data["variables"], scope)
     update = _translate_edges(data["edges"], ctx)
     wires, relabels = [], {}
     for var in ctx.scope.variables:
@@ -461,8 +462,10 @@ def translate_file(path):
 
 def translate_jani(data: json):
     global_scope = JaniScope()
-    _translate_constants(data["constants"], global_scope)
-    _translate_variables(data["variables"], global_scope)
+    if "constants" in data:
+        _translate_constants(data["constants"], global_scope)
+    if "variables" in data:
+        _translate_variables(data["variables"], global_scope)
     if len(data["automata"]) != 1:
         # TODO
         raise NotImplementedError("Only support monolithic jani.")
