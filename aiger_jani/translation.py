@@ -12,7 +12,7 @@ import aiger_discrete as D
 from bidict import bidict
 from fractions import Fraction
 
-from aiger_jani.utils import atom, mux, par_compose
+from aiger_jani.utils import atom, mux, par_compose, min_op, max_op
 
 BVExpr = BV.UnsignedBVExpr
 
@@ -234,7 +234,7 @@ def _translate_variables(data: dict, scope: JaniScope):
                 f"Type of variable {name} must be a base type or an extended type")
 
 
-BINARY_AEX_OPS = {"+": ops.add, "-": ops.sub}
+BINARY_AEX_OPS = {"+": ops.add, "-": ops.sub, "min": min_op, "max": max_op}
 BINARY_BOOL_OPS = {"≤": ops.le, "≥": ops.ge}
 BINARY_OPS = BINARY_AEX_OPS | BINARY_BOOL_OPS
 
