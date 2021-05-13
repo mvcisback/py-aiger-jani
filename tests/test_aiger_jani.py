@@ -34,5 +34,6 @@ def test_die():
 
 
 def test_obstacleflat():
+    circ = translate_file("tests/jani_files/grid.jani")
     circ = translate_file("tests/jani_files/obstacle-flat-nonslip.jani")
     circ = translate_file("tests/jani_files/obstacle-flat.jani")
