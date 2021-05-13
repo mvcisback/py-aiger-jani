@@ -247,7 +247,9 @@ def _translate_expression(data: dict, scope: JaniScope):
     :return: An expression in py-aiger-bv
     """
     if isinstance(data, int):
-        nr_bits = math.ceil(math.log(data, 2)) + 1
+        if data == 0:
+            return BV.uatom(1, data)
+        nr_bits = int(math.ceil(math.log(data, 2)) + 1)
         return BV.uatom(nr_bits, data)
     if isinstance(data, str):
         return scope.get_aig_variable(data)
