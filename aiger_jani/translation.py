@@ -235,7 +235,7 @@ def _translate_variables(data: dict, scope: JaniScope):
 
 
 BINARY_AEX_OPS = {"+": ops.add, "-": ops.sub, "min": min_op, "max": max_op}
-BINARY_BOOL_OPS = {"≤": ops.le, "≥": ops.ge}
+BINARY_BOOL_OPS = {"≤": ops.le, "≥": ops.ge, "=": ops.eq, "<": ops.lt, ">": ops.gt}
 BINARY_OPS = BINARY_AEX_OPS | BINARY_BOOL_OPS
 
 
