@@ -265,6 +265,8 @@ def _translate_expression(data: dict, scope: JaniScope):
     :param scope: The scope with the variable definitions.
     :return: An expression in py-aiger-bv
     """
+    if isinstance(data, bool):
+        return BV.uatom(1, 1 if data else 0)
     if isinstance(data, int):
         if data == 0:
             return BV.uatom(1, data)
