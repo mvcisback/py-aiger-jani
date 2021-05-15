@@ -29,7 +29,7 @@ def mux(outputs: Sequence[BVExpr], *, key_name: str = "mux") -> BVExpr:
 
 def min_bits(x: Number) -> int:
     """Returns minimum number of bits to represent x."""
-    return int(math.ceil(math.log(x)))
+    return int(math.ceil(math.log(x+1, 2)))
 
 
 def atom(n: Number, name: str) -> BVExpr:
@@ -40,12 +40,13 @@ def par_compose(seq: BV.AIGBV) -> BV.AIGBV:
     """Takes parallel composition of a iterable of AIGBVs."""
     return reduce(op.or_, seq)
 
+
 def min_op(lhs, rhs):
     return BV.ite(lhs < rhs, lhs, rhs)
 
+
 def max_op(lhs, rhs):
     return BV.ite(lhs > rhs, lhs, rhs)
-
 
 
 __all__ = ['mux', 'min_bits', 'par_compose', 'atom', 'min_op', 'max_op']
