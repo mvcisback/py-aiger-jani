@@ -261,7 +261,7 @@ BINARY_BOOL_OPS = {"≤": ops.le,
                    ">": ops.gt,
                    "∧": ops.and_}
 BINARY_OPS = BINARY_AEX_OPS | BINARY_BOOL_OPS
-UNARY_OPS = {"¬": ops.not_, "-": ops.neg}
+UNARY_OPS = {"¬": ops.inv, "-": ops.neg}
 
 
 def _translate_expression(data: dict, scope: JaniScope):
