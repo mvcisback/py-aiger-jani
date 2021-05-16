@@ -447,9 +447,10 @@ def _translate_edges(data: dict, ctx: AutomatonContext):
             yield mux(outputs, key_name='edge').with_output(v.name).aigbv
 
         for v in ctx.scope.variables:
-            size = 1
-            outputs = [BV.uatom(size, f"{v.name}-mod-{idx}") for idx in indices]
-            yield mux(outputs, key_name='edge').with_output(v.name+"-mod").aigbv
+            if not v.is_local:
+                size = 1
+                outputs = [BV.uatom(size, f"{v.name}-mod-{idx}") for idx in indices]
+                yield mux(outputs, key_name='edge').with_output(v.name+"-mod").aigbv
 
     edge_circuits_composed = par_compose(edge_circuits)
     selectors_composed = par_compose(selectors())
@@ -519,11 +520,13 @@ def translate_jani(data: json):
     aut, *_ = data["automata"]
 
     aut_encoding =  _translate_automaton(aut, global_scope.make_local_scope_copy())
+    # TODO use mod variables to select which variables to update
+    for var in global_scope.variables:
+        aut_encoding = aut_encoding >> BV.sink(1, [var.name+"-mod"])
 
     if len(global_scope.variables) == 0:
         return aut_encoding
     wires, relabels = [], {}
-    # TODO use mod variables to select which variables to update
     for var in global_scope.variables:
         name = f'global-{var.name}'
         wires.append({
