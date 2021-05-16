@@ -367,6 +367,7 @@ def _translate_destinations(data: dict, ctx: AutomatonContext) -> set[str]:
             val = assignment["value"]
             updates[var_primed] = _translate_expression(val, ctx.scope) \
                 .with_output(var_primed) \
+                .resize(ctx.scope.get_aig_variable(var_primed).size) \
                 .aigbv
 
         for var in vars_written_to:
