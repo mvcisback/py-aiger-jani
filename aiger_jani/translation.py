@@ -12,7 +12,7 @@ import aiger_discrete as D
 from bidict import bidict
 from fractions import Fraction
 
-from aiger_jani.utils import atom, mux, par_compose, min_op, max_op
+from aiger_jani.utils import atom, mux, par_compose, min_op, max_op, min_bits
 
 BVExpr = BV.UnsignedBVExpr
 
@@ -270,7 +270,7 @@ def _translate_expression(data: dict, scope: JaniScope):
     if isinstance(data, int):
         if data == 0:
             return BV.uatom(1, data)
-        nr_bits = int(math.ceil(math.log(data, 2)) + 1)
+        nr_bits = min_bits(data)
         return BV.uatom(nr_bits, data)
     if isinstance(data, str):
         return scope.get_aig_variable(data)
