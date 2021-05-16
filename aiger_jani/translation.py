@@ -360,14 +360,15 @@ def _translate_destinations(data: dict, ctx: AutomatonContext) -> set[str]:
         updates = {}
         # TODO add location handling
         for assignment in d["assignments"]:
-            var_primed = assignment["ref"]
+            var_name = assignment["ref"]
+            var_primed = var_name
             if len(data) > 1:  # TODO: why make this case special?
                 var_primed += f"-{index}"
 
             val = assignment["value"]
             updates[var_primed] = _translate_expression(val, ctx.scope) \
                 .with_output(var_primed) \
-                .resize(ctx.scope.get_aig_variable(var_primed).size) \
+                .resize(ctx.scope.get_aig_variable(var_name).size) \
                 .aigbv
 
         for var in vars_written_to:
