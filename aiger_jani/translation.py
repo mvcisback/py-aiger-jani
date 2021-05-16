@@ -485,6 +485,8 @@ def _translate_automaton(data: dict, scope: JaniScope):
     update = _translate_edges(data["edges"], ctx)
     wires, relabels = [], {}
     for var in ctx.scope.variables:
+        if not var.is_local:
+            continue
         name = f'{ctx._aut_name}-{var.name}'
         wires.append({
             'input': var.name,
@@ -494,6 +496,8 @@ def _translate_automaton(data: dict, scope: JaniScope):
             'keep_output': True,
         })
         relabels[var.name] = name
+    if len(wires) == 0:
+        return update
     return update.loopback(*wires)['o', relabels]
 
 
@@ -513,8 +517,23 @@ def translate_jani(data: json):
         # TODO
         raise NotImplementedError("Only support monolithic jani.")
     aut, *_ = data["automata"]
-    # TODO: make global variables sequential (latches).
-    return _translate_automaton(aut, global_scope.make_local_scope_copy())
 
+    aut_encoding =  _translate_automaton(aut, global_scope.make_local_scope_copy())
+
+    if len(global_scope.variables) == 0:
+        return aut_encoding
+    wires, relabels = [], {}
+    # TODO use mod variables to select which variables to update
+    for var in global_scope.variables:
+        name = f'global-{var.name}'
+        wires.append({
+            'input': var.name,
+            'output': var.name,
+            'init': var.initial,
+            'latch': name,
+            'keep_output': True,
+        })
+        relabels[var.name] = name
+    return aut_encoding.loopback(*wires)['o', relabels]
 
 __all__ = ['translate_file', 'translate_jani']
