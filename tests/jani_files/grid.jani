@@ -232,7 +232,7 @@
         "derived-operators"
     ],
     "jani-version": 1,
-    "name": "obstacle-flat-nonslip-alt",
+    "name": "simple-grid",
     "properties": [],
     "restrict-initial": {
         "exp": true
