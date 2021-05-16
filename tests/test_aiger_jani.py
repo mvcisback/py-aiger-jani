@@ -12,7 +12,8 @@ def test_minimdp():
     assert circ.outputs == {'main-x', 'main-y'}
 
     # Fix edge and check probability of ending on x=3 given valid run.
-    query = circ << BV.source(1, 0, 'edge', False)
+    # TODO this currently only works with one.
+    query = circ << BV.source(2, 0, 'edge', False)
     query >>= BV.sink(2, ['main-y'])
     query >>= (BV.uatom(2, 'main-x') == 3).aigbv
 
