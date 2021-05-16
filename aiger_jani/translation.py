@@ -254,8 +254,14 @@ def _translate_variables(data: dict, scope: JaniScope):
 
 
 BINARY_AEX_OPS = {"+": ops.add, "-": ops.sub, "min": min_op, "max": max_op}
-BINARY_BOOL_OPS = {"≤": ops.le, "≥": ops.ge, "=": ops.eq, "<": ops.lt, ">": ops.gt}
+BINARY_BOOL_OPS = {"≤": ops.le,
+                   "≥": ops.ge,
+                   "=": ops.eq,
+                   "<": ops.lt,
+                   ">": ops.gt,
+                   "∧": ops.and_}
 BINARY_OPS = BINARY_AEX_OPS | BINARY_BOOL_OPS
+UNARY_OPS = {"¬": ops.not_, "-": ops.neg}
 
 
 def _translate_expression(data: dict, scope: JaniScope):
@@ -277,22 +283,29 @@ def _translate_expression(data: dict, scope: JaniScope):
 
     if "op" not in data:
         raise ValueError(f"{data} is expected to have an operator")
+    if "right" in data:
+        try:
+            op = BINARY_OPS[data["op"]]
+        except KeyError:
+            raise NotImplementedError(f"Operator {data['op']} not supported")
+        left_subexpr = _translate_expression(data["left"], scope)
+        right_subexpr = _translate_expression(data["right"], scope)
 
-    try:
-        op = BINARY_OPS[data["op"]]
-    except KeyError:
-        raise NotImplementedError(f"Operator {data['op']} not supported")
+        # Match size
+        if left_subexpr.size < right_subexpr.size:
+            left_subexpr = left_subexpr.resize(right_subexpr.size)
+        elif right_subexpr.size < left_subexpr.size:
+            right_subexpr = right_subexpr.resize(left_subexpr.size)
 
-    left_subexpr = _translate_expression(data["left"], scope)
-    right_subexpr = _translate_expression(data["right"], scope)
+        return op(left_subexpr, right_subexpr)
+    else:
+        try:
+            op = UNARY_OPS[data["op"]]
+        except KeyError:
+            raise NotImplementedError(f"Operator {data['op']} not supported")
 
-    # Match size
-    if left_subexpr.size < right_subexpr.size:
-        left_subexpr = left_subexpr.resize(right_subexpr.size)
-    elif right_subexpr.size < left_subexpr.size:
-        right_subexpr = right_subexpr.resize(left_subexpr.size)
-
-    return op(left_subexpr, right_subexpr)
+        subexpr = _translate_expression(data["exp"], scope)
+        return op(subexpr)
 
 
 def _parse_prob(data) -> Fraction:
