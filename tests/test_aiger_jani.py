@@ -32,15 +32,14 @@ def test_minimdp():
 
 def test_die():
     circ = translate_file("tests/jani_files/die.jani")
-    assert circ.outputs == {'global-s', 'global-d'}, f"{circ.outputs}"
+    assert circ.outputs == {'global-s', 'global-d'}
 
 
 def test_plaingrid():
     circ = translate_file("tests/jani_files/grid.jani")
-    assert circ.outputs == {'master-ax', 'master-ay'}, f"{circ.outputs}"
+    assert circ.outputs == {'master-ax', 'master-ay'}
 
 
 def test_obstacleflat():
     circ = translate_file("tests/jani_files/obstacle-flat-nonslip.jani")
-    assert circ.outputs == {'global-ax', 'global-ay', "global-start"}, f"{circ.outputs}"
-
+    assert circ.outputs == {'global-ax', 'global-ay', "global-start"}

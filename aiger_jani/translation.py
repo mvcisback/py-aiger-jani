@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import math
 import operator as ops
 from typing import Any, Sequence
 
@@ -76,10 +75,11 @@ class JaniScope:
             self._variables[name] = variable
             self._aigvars[name] = atom(1, name)
         else:
-            pass # TODO support transient variables
+            pass  # TODO support transient variables
 
     def add_bounded_int_variable(self, name: str, lower_bound: int,
-                                 upper_bound: int, init: int, is_transient: bool) -> None:
+                                 upper_bound: int, init: int,
+                                 is_transient: bool) -> None:
         """
         Add bounded integer variable to the scope
         :param name: name of the variable.
@@ -100,8 +100,7 @@ class JaniScope:
             self._variables[name] = variable
             self._aigvars[name] = atom(upper_bound - lower_bound, name)
         else:
-            pass # TODO support transient variables
-
+            pass  # TODO support transient variables
 
     def add_constant(self, name: str, tp: str, value: str) -> None:
         assert tp in ["real", "int"], f"Got type {tp}"
@@ -196,10 +195,12 @@ def _translate_constants(data: dict, scope: JaniScope):
             raise ValueError("Constant not named")
         name = v["name"]
         if v["type"] not in ["int", "real"]:
-            raise NotImplementedError("Only integer and real-valued constants are supported")
+            raise NotImplementedError(
+                "Only integer and real-valued constants are supported")
         type = v["type"]
         if "value" not in v:
-            raise NotImplementedError("We currently expect a fixed value for constants")
+            raise NotImplementedError(
+                "We currently expect a fixed value for constants")
         value = v["value"]
         scope.add_constant(name, type, value)
 
@@ -211,8 +212,11 @@ def _translate_variables(data: dict, scope: JaniScope):
         name = v["name"]
         if isinstance(v["type"], str):
             if v["type"] != "bool":
-                raise ValueError(
-                    f"Booleans are the only plain data type supported, but got {v['type']} for variable {name} (bounded inters are extended types).")
+                errmsg = (f"Booleans are the only plain data type supported,"
+                          f"but got {v['type']} for variable {name}"
+                          "(bounded inters are extended types)."
+                          )
+                raise ValueError(errmsg)
             if 'initial-value' not in v:
                 raise NotImplementedError(
                     f"Variable {name} must have an initial value."
@@ -225,8 +229,10 @@ def _translate_variables(data: dict, scope: JaniScope):
             scope.add_boolean_variable(name, init, is_transient)
         elif isinstance(v["type"], dict):
             if v["type"]["kind"] != "bounded":
-                raise ValueError(
-                    "Bounded integers are the only extended variable type supported")
+                emsg = (" Bounded integers are the only extended"
+                        " variable type supported"
+                        )
+                raise ValueError(emsg)
             if v["type"]["base"] != "int":
                 raise ValueError("Only integer-typed variables are supported")
             # TODO could be a constant expression, which is not yet supported.
@@ -249,8 +255,10 @@ def _translate_variables(data: dict, scope: JaniScope):
             scope.add_bounded_int_variable(
                 name, lower_bound, upper_bound, init, is_transient)
         else:
-            raise ValueError(
-                f"Type of variable {name} must be a base type or an extended type")
+            errmsg = (f"Type of variable {name} must be a base type"
+                      f" or an extended type"
+                      )
+            raise ValueError(errmsg)
 
 
 BINARY_AEX_OPS = {"+": ops.add, "-": ops.sub, "min": min_op, "max": max_op}
@@ -395,12 +403,10 @@ def _translate_destinations(data: dict, ctx: AutomatonContext) -> set[str]:
                 size = ctx.scope.get_aig_variable(var).size
                 outputs = [BV.uatom(size, f"{var}-{idx}") for idx in indices]
                 yield mux(outputs, key_name='sel').with_output(var).aigbv
-
         edge_circuit >>= par_compose(selectors())
         edge_circuit <<= prob_input
     else:
         edge_circuit = C.pcirc(edge_circuit)  # Deterministic pcirc.
-
     return edge_circuit, vars_written_to
 
 
@@ -448,9 +454,10 @@ def _translate_edges(data: dict, ctx: AutomatonContext):
 
         for v in ctx.scope.variables:
             if not v.is_local:
+                mname = f"{v.name}-mod"
                 size = 1
-                outputs = [BV.uatom(size, f"{v.name}-mod-{idx}") for idx in indices]
-                yield mux(outputs, key_name='edge').with_output(v.name+"-mod").aigbv
+                outputs = [BV.uatom(size, f"{mname}-{idx}") for idx in indices]
+                yield mux(outputs, key_name='edge').with_output(mname).aigbv
 
     edge_circuits_composed = par_compose(edge_circuits)
     selectors_composed = par_compose(selectors())
@@ -519,7 +526,8 @@ def translate_jani(data: json):
         raise NotImplementedError("Only support monolithic jani.")
     aut, *_ = data["automata"]
 
-    aut_encoding =  _translate_automaton(aut, global_scope.make_local_scope_copy())
+    aut_encoding = _translate_automaton(
+        aut, global_scope.make_local_scope_copy())
     # TODO use mod variables to select which variables to update
     for var in global_scope.variables:
         aut_encoding = aut_encoding >> BV.sink(1, [var.name+"-mod"])
@@ -538,5 +546,6 @@ def translate_jani(data: json):
         })
         relabels[var.name] = name
     return aut_encoding.loopback(*wires)['o', relabels]
+
 
 __all__ = ['translate_file', 'translate_jani']
