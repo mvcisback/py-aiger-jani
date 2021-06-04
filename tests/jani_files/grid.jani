@@ -22,16 +22,16 @@
                         {
                             "assignments": [
                                 {
-                                    "comment": "ax <- (min((ax + 1), 5))",
-                                    "ref": "ax",
+                                    "comment": "x <- (min((x + 1), 4))",
+                                    "ref": "x",
                                     "value": {
                                         "left": {
-                                            "left": "ax",
+                                            "left": "x",
                                             "op": "+",
                                             "right": 1
                                         },
                                         "op": "min",
-                                        "right": 5
+                                        "right": 4
                                     }
                                 }
                             ],
@@ -46,11 +46,11 @@
                         {
                             "assignments": [
                                 {
-                                    "comment": "ay <- (max((ay - 1), 0))",
-                                    "ref": "ay",
+                                    "comment": "y <- (max((y - 1), 0))",
+                                    "ref": "y",
                                     "value": {
                                         "left": {
-                                            "left": "ay",
+                                            "left": "y",
                                             "op": "-",
                                             "right": 1
                                         },
@@ -70,16 +70,16 @@
                         {
                             "assignments": [
                                 {
-                                    "comment": "ay <- (min((ay + 1), 5))",
-                                    "ref": "ay",
+                                    "comment": "y <- (min((y + 1), 4))",
+                                    "ref": "y",
                                     "value": {
                                         "left": {
-                                            "left": "ay",
+                                            "left": "y",
                                             "op": "+",
                                             "right": 1
                                         },
                                         "op": "min",
-                                        "right": 5
+                                        "right": 4
                                     }
                                 }
                             ],
@@ -94,11 +94,11 @@
                         {
                             "assignments": [
                                 {
-                                    "comment": "ax <- (max((ax - 1), 0))",
-                                    "ref": "ax",
+                                    "comment": "x <- (max((x - 1), 0))",
+                                    "ref": "x",
                                     "value": {
                                         "left": {
-                                            "left": "ax",
+                                            "left": "x",
                                             "op": "-",
                                             "right": 1
                                         },
@@ -118,121 +118,114 @@
             ],
             "locations": [
                 {
-                    "name": "l"
+                    "name": "l",
+                    "transient-values": [
+                        {
+                            "comment": "station <- (((x = 0) & (y = 0)) | ((x = 1) & (y = 4)))",
+                            "ref": "station",
+                            "value": {
+                                "left": {
+                                    "left": {
+                                        "left": "x",
+                                        "op": "=",
+                                        "right": 0
+                                    },
+                                    "op": "∧",
+                                    "right": {
+                                        "left": "y",
+                                        "op": "=",
+                                        "right": 0
+                                    }
+                                },
+                                "op": "∨",
+                                "right": {
+                                    "left": {
+                                        "left": "x",
+                                        "op": "=",
+                                        "right": 1
+                                    },
+                                    "op": "∧",
+                                    "right": {
+                                        "left": "y",
+                                        "op": "=",
+                                        "right": 4
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "comment": "exit <- ((x = 4) & (y = 4))",
+                            "ref": "exit",
+                            "value": {
+                                "left": {
+                                    "left": "x",
+                                    "op": "=",
+                                    "right": 4
+                                },
+                                "op": "∧",
+                                "right": {
+                                    "left": "y",
+                                    "op": "=",
+                                    "right": 4
+                                }
+                            }
+                        },
+                        {
+                            "comment": "red <- ((y < 2) & (x = 4))",
+                            "ref": "red",
+                            "value": {
+                                "left": {
+                                    "left": "y",
+                                    "op": "<",
+                                    "right": 2
+                                },
+                                "op": "∧",
+                                "right": {
+                                    "left": "x",
+                                    "op": "=",
+                                    "right": 4
+                                }
+                            }
+                        }
+                    ]
                 }
             ],
-            "name": "master",
-            "variables": [
-                {
-                    "initial-value": 0,
-                    "name": "ax",
-                    "type": {
-                        "base": "int",
-                        "kind": "bounded",
-                        "lower-bound": 0,
-                        "upper-bound": 5
-                    }
-                },
-                {
-                    "initial-value": 0,
-                    "name": "ay",
-                    "type": {
-                        "base": "int",
-                        "kind": "bounded",
-                        "lower-bound": 0,
-                        "upper-bound": 5
-                    }
-                }
-            ]
+            "name": "main",
+            "variables": []
         }
     ],
     "constants": [
         {
             "name": "N",
             "type": "int",
-            "value": 6
-        },
-        {
-            "name": "axMAX",
-            "type": "int",
             "value": 5
         },
         {
-            "name": "ayMAX",
-            "type": "int",
-            "value": 5
-        },
-        {
-            "name": "axMIN",
-            "type": "int",
-            "value": 0
-        },
-        {
-            "name": "ayMIN",
-            "type": "int",
-            "value": 0
-        },
-        {
-            "name": "slippery",
-            "type": "real",
-            "value": 0
-        },
-        {
-            "name": "ob1x",
+            "name": "xMAX",
             "type": "int",
             "value": 4
         },
         {
-            "name": "ob1y",
+            "name": "yMAX",
             "type": "int",
             "value": 4
         },
         {
-            "name": "ob2x",
-            "type": "int",
-            "value": 5
-        },
-        {
-            "name": "ob2y",
-            "type": "int",
-            "value": 1
-        },
-        {
-            "name": "ob3x",
-            "type": "int",
-            "value": 1
-        },
-        {
-            "name": "ob3y",
+            "name": "xMIN",
             "type": "int",
             "value": 0
         },
         {
-            "name": "ob4x",
+            "name": "yMIN",
             "type": "int",
-            "value": 5
-        },
-        {
-            "name": "ob4y",
-            "type": "int",
-            "value": 4
-        },
-        {
-            "name": "ob5x",
-            "type": "int",
-            "value": 2
-        },
-        {
-            "name": "ob5y",
-            "type": "int",
-            "value": 4
+            "value": 0
         }
     ],
     "features": [
         "derived-operators"
     ],
     "jani-version": 1,
-    "name": "simple-grid",
+    "name": "grid",
     "properties": [],
     "restrict-initial": {
         "exp": true
@@ -240,7 +233,7 @@
     "system": {
         "elements": [
             {
-                "automaton": "master"
+                "automaton": "main"
             }
         ],
         "syncs": [
@@ -271,5 +264,44 @@
         ]
     },
     "type": "mdp",
-    "variables": []
+    "variables": [
+        {
+            "initial-value": false,
+            "name": "station",
+            "transient": true,
+            "type": "bool"
+        },
+        {
+            "initial-value": false,
+            "name": "exit",
+            "transient": true,
+            "type": "bool"
+        },
+        {
+            "initial-value": false,
+            "name": "red",
+            "transient": true,
+            "type": "bool"
+        },
+        {
+            "initial-value": 0,
+            "name": "x",
+            "type": {
+                "base": "int",
+                "kind": "bounded",
+                "lower-bound": 0,
+                "upper-bound": 4
+            }
+        },
+        {
+            "initial-value": 0,
+            "name": "y",
+            "type": {
+                "base": "int",
+                "kind": "bounded",
+                "lower-bound": 0,
+                "upper-bound": 4
+            }
+        }
+    ]
 }

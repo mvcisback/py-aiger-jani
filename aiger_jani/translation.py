@@ -73,9 +73,9 @@ class JaniScope:
         variable = JaniBooleanVariable(name, self._local, init)
         if not is_transient:
             self._variables[name] = variable
-            self._aigvars[name] = atom(1, name)
         else:
-            pass  # TODO support transient variables
+            self._transient_vars[name] = variable
+        self._aigvars[name] = atom(1, name)
 
     def add_bounded_int_variable(self, name: str, lower_bound: int,
                                  upper_bound: int, init: int,
@@ -89,7 +89,7 @@ class JaniScope:
            an int for now).
         :return:n
         """
-        if name in self._variables:
+        if name in self._variables | self._transient_vars:
             raise ValueError(
                 f"Variable with name {name} already exists in scope.")
 
@@ -98,9 +98,9 @@ class JaniScope:
         )
         if not is_transient:
             self._variables[name] = variable
-            self._aigvars[name] = atom(upper_bound - lower_bound, name)
         else:
-            pass  # TODO support transient variables
+            self._transient_vars[name] = variable
+        self._aigvars[name] = atom(upper_bound - lower_bound, name)
 
     def add_constant(self, name: str, tp: str, value: str) -> None:
         assert tp in ["real", "int"], f"Got type {tp}"
@@ -137,6 +137,11 @@ class JaniScope:
     def variables(self):
         # TODO: should this be frozenset?
         return list(self._variables.values())
+
+    @property
+    def transient_variables(self):
+        # TODO: should this be frozenset?
+        return list(self._transient_vars.values())
 
 
 Probs = Sequence[float]
@@ -267,7 +272,8 @@ BINARY_BOOL_OPS = {"≤": ops.le,
                    "=": ops.eq,
                    "<": ops.lt,
                    ">": ops.gt,
-                   "∧": ops.and_}
+                   "∧": ops.and_,
+                   "∨": ops.or_}
 BINARY_OPS = BINARY_AEX_OPS | BINARY_BOOL_OPS
 UNARY_OPS = {"¬": ops.inv, "-": ops.neg}
 
@@ -485,12 +491,45 @@ def _create_automaton_context(data: dict, scope: JaniScope):
     return AutomatonContext(data["name"], scope, locations)
 
 
+def _create_state_labels(locs, ctx: AutomatonContext):
+    # TODO support multiple locations
+    assert len(locs) == 1, "Support only a single location"
+    this_loc = locs[0]
+    if "transient-values" not in this_loc:
+        # TODO put an empty circuit.
+        return BV.source(wordlen=1, value=1, name="dummy", signed=False) \
+               >> BV.sink(1, inputs=['dummy'])
+    label_assignments = []
+    labels_assigned = set()
+    for assignment in this_loc["transient-values"]:
+        var_name = assignment["ref"]
+        val = assignment["value"]
+        labels_assigned.add(var_name)
+        circ = _translate_expression(val, ctx.scope) \
+            .resize(ctx.scope.get_aig_variable(var_name).size) \
+            .with_output(var_name) \
+            .aigbv
+        label_assignments.append(circ)
+    loc_circuit = par_compose(label_assignments)
+    for v in ctx.scope.transient_variables:
+        if not v.is_local:
+            loc_circuit |= BV.source(
+                wordlen=1,
+                value=int(v.name in labels_assigned),
+                name=f'{v.name}-mod',
+                signed=False,
+            )
+    return loc_circuit
+
+
 def _translate_automaton(data: dict, scope: JaniScope):
     # TODO: Apply feedback loops to make sequential circuit.
     ctx = _create_automaton_context(data, scope)
     if "variables" in data:
         _translate_variables(data["variables"], scope)
+    loc_circuit = _create_state_labels(data["locations"], ctx)
     update = _translate_edges(data["edges"], ctx)
+    network = update | loc_circuit
     wires, relabels = [], {}
     for var in ctx.scope.variables:
         if not var.is_local:
@@ -505,8 +544,8 @@ def _translate_automaton(data: dict, scope: JaniScope):
         })
         relabels[var.name] = name
     if len(wires) == 0:
-        return update
-    return update.loopback(*wires)['o', relabels]
+        return network
+    return network.loopback(*wires)['o', relabels]
 
 
 def translate_file(path):
@@ -530,7 +569,10 @@ def translate_jani(data: json):
         aut, global_scope.make_local_scope_copy())
     # TODO use mod variables to select which variables to update
     for var in global_scope.variables:
-        aut_encoding = aut_encoding >> BV.sink(1, [var.name+"-mod"])
+        aut_encoding = aut_encoding >> BV.sink(1, [var.name + "-mod"])
+    # TODO use transient mod-variables to check validity
+    # TODO use transient mod-variables being set to false to indicate
+    #  use of default values
 
     if len(global_scope.variables) == 0:
         return aut_encoding

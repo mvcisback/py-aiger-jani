@@ -37,7 +37,7 @@ def test_die():
 
 def test_plaingrid():
     circ = translate_file("tests/jani_files/grid.jani")
-    assert circ.outputs == {'master-ax', 'master-ay'}
+    assert circ.outputs == {'global-x', 'global-y', 'red', 'station', 'exit'}
 
 
 def test_obstacleflat():
