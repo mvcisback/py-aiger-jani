@@ -36,10 +36,18 @@ def test_die():
 
 
 def test_plaingrid():
-    circ = translate_file("tests/jani_files/grid.jani")
-    assert circ.outputs == {'global-x', 'global-y', 'red', 'station', 'exit'}
+    circ = translate_file("tests/jani_files/grid.jani",
+                          action_deterministic=True)
+    assert circ.outputs == {'global-x', 'global-y', 'red', 'station', 'exit', '_valid_input'}
+
+
+def test_plaingrid_extended():
+    circ = translate_file("tests/jani_files/grid_two.jani",
+                          action_deterministic=True)
+    assert circ.outputs == {'global-x', 'global-y', 'red', 'station', 'exit', '_valid_input'}
 
 
 def test_obstacleflat():
-    circ = translate_file("tests/jani_files/obstacle-flat-nonslip.jani")
-    assert circ.outputs == {'global-ax', 'global-ay', "global-start"}
+    circ = translate_file("tests/jani_files/obstacle-flat-nonslip.jani",
+                          action_deterministic=True)
+    assert circ.outputs == {'global-ax', 'global-ay', "global-start", '_valid_input'}

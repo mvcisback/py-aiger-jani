@@ -27,9 +27,25 @@ def mux(outputs: Sequence[BVExpr], *, key_name: str = "mux") -> BVExpr:
     return reduce(op.or_, masked_outputs(outputs, key_name))
 
 
+def at_most_one(exprs) -> BVExpr:
+    """Returns an expression that is true if at most one expression is true"""
+    pairs = []
+    for index in range(len(exprs)):
+        for e2 in exprs[index+1:]:
+            pairs.append(~(exprs[index] & e2))
+    return reduce(op.and_, pairs)
+
+
 def min_bits(x: Number) -> int:
     """Returns minimum number of bits to represent x."""
     return int(math.ceil(math.log(x+1, 2)))
+
+
+def empty_circuit() -> BV.AIGBV:
+    """Returns a circuit without input or output"""
+    # TODO this should be easier
+    return BV.source(wordlen=1, value=1, name="dummy", signed=False) \
+           >> BV.sink(1, inputs=['dummy'])
 
 
 def atom(n: Number, name: str) -> BVExpr:

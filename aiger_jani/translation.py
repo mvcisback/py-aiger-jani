@@ -11,7 +11,11 @@ import aiger_discrete as D
 from bidict import bidict
 from fractions import Fraction
 
-from aiger_jani.utils import atom, mux, par_compose, min_op, max_op, min_bits
+import operator as op
+from functools import reduce
+
+from aiger_jani.utils import atom, mux, par_compose, min_op, max_op, min_bits, \
+    empty_circuit, at_most_one
 
 BVExpr = BV.UnsignedBVExpr
 
@@ -153,7 +157,7 @@ class AutomatonContext:
     scope: JaniScope
     locations: dict[Any, bool]  # TODO: tighen signature.
     _actions: dict[str, int] = attr.ib(factory=lambda: {"": 0})
-    _actions_cnt: dict[str, int] = attr.ib(factory=lambda: {"": 0})
+    _action_edges: dict[str, [int]] = attr.ib(factory=lambda: {"": []})
     _distributions: dict[Probs, C.PCirc] = attr.ib(factory=dict)
 
     def register_distribution(self, probs):
@@ -172,26 +176,32 @@ class AutomatonContext:
             func = D.from_aigbv(sel.aigbv, input_encodings={name: encoder})
 
             name2prob = {
-                name:
-                {f"sel-{index}": prob
-                 for index, prob in enumerate(probs)}
+                name: {f"sel-{index}": prob for index, prob in enumerate(probs)}
             }
             coins_id = f"{self._aut_name}_c{len(self._distributions)}"
 
             self._distributions[dist] = C.pcirc(func) \
-                                         .randomize(name2prob) \
-                                         .with_coins_id(coins_id)
+                .randomize(name2prob) \
+                .with_coins_id(coins_id)
         return self._distributions[dist]
 
-    def register_action(self, action: str):
+    def register_action(self, action: str, edge_index : int):
         """
         :param action: The name of the action
         :return: The action index and the internal non-det index
         """
         if action not in self._actions:
             self._actions[action] = len(self._actions)
-        self._actions_cnt[action] = self._actions_cnt.get(action, 0) + 1
-        return self._actions[action], self._actions_cnt[action]
+        self._action_edges[action] = self._action_edges.get(action, [])\
+                                    + [edge_index]
+        return self._actions[action], self._action_edges[action]
+
+    @property
+    def actions(self):
+        return self._actions.keys()
+
+    def get_edge_indices(self, action):
+        return self._action_edges[action]
 
 
 def _translate_constants(data: dict, scope: JaniScope):
@@ -391,9 +401,9 @@ def _translate_destinations(data: dict, ctx: AutomatonContext) -> set[str]:
                 var_primed += f"-{index}"  # TODO: why make this case special.
             if var_primed not in updates:
                 updates[var_primed] = ctx.scope \
-                                         .get_aig_variable(var) \
-                                         .with_output(var_primed) \
-                                         .aigbv
+                    .get_aig_variable(var) \
+                    .with_output(var_primed) \
+                    .aigbv
 
         update = par_compose(updates.values())
         destinations.append(update)
@@ -416,16 +426,24 @@ def _translate_destinations(data: dict, ctx: AutomatonContext) -> set[str]:
     return edge_circuit, vars_written_to
 
 
-def _translate_edges(data: dict, ctx: AutomatonContext):
+def _translate_edges(data: dict,
+                     ctx: AutomatonContext,
+                     action_deterministic: bool):
     # TODO handle notion of actions
     # max_internal_nondet_bits = int(np.ceil(np.log(len(data))))
     # max_action_bits = int(np.ceil(np.log(len(data) + 1))) # +1 due
     # to reserving space for silent act
-    #
+
     # select_edge_expr = []
     edge_circuits = []
+    edge_guards = []
+    edge_size = min_bits(len(data))
     edge_expr = atom(len(data), 'edge')
     for edge_index, edge in enumerate(data):
+        action_str = ""
+        if "action" in edge:
+            action_str = edge["action"]
+        ctx.register_action(action_str, edge_index)
         # TODO add location handling
         assert edge["location"] == "l"
 
@@ -445,11 +463,17 @@ def _translate_edges(data: dict, ctx: AutomatonContext):
 
             if v.name not in vars_written_to:
                 edge_circuit |= ctx.scope.get_aig_variable(v.name) \
-                                         .with_output(v.name) \
-                                         .aigbv
+                    .with_output(v.name) \
+                    .aigbv
         # Rename outputs such that we can later merge them.
         relabels = {o: f"{o}-{edge_index}" for o in edge_circuit.outputs}
         edge_circuits.append(edge_circuit['o', relabels])
+
+        if "guard" in edge:
+            edge_guards.append(
+                _translate_expression(edge["guard"]["exp"], ctx.scope))
+        else:
+            edge_guards.append(BV.atom(1, 1, signed=False))
 
     def selectors():
         indices = range(len(edge_circuits))
@@ -469,13 +493,36 @@ def _translate_edges(data: dict, ctx: AutomatonContext):
     selectors_composed = par_compose(selectors())
     update = edge_circuits_composed >> selectors_composed
 
+    if action_deterministic:
+        action_enabled = {}
+        action_in = []
+        action_to_edge_netw = BV.uatom(edge_size, 0)
+        for action in ctx.actions:
+            action_guards = []
+            action_to_edge_inner_netw = BV.uatom(edge_size, 0)
+            action_in.append(BV.uatom(1, action))
+            for edge_idx in ctx.get_edge_indices(action):
+                action_guards.append(edge_guards[edge_idx])
+                action_to_edge_inner_netw = BV.ite(action_guards[-1],
+                                                   BV.uatom(edge_size, edge_idx),
+                                                   action_to_edge_inner_netw)
+            action_to_edge_netw = BV.ite(action_in[-1],
+                                         action_to_edge_inner_netw,
+                                         action_to_edge_netw)
+            if len(action_guards) > 0:
+                action_enabled[action] = reduce(op.or_, action_guards)
+            else:
+                action_enabled[action] = BV.uatom(1, 0)
+        action_to_edge_netw = action_to_edge_netw.with_output('edge').aigbv
+        select_one_action = at_most_one(action_in).with_output("_valid_input").aigbv
+        action_to_edge_netw = par_compose([action_to_edge_netw,select_one_action])
+        print(action_to_edge_netw)
+        print(update)
+        update = update << action_to_edge_netw
+
     # Add guards
-    edge_expr = atom(len(edge_circuits), 'edge')
     for edge_idx, edge in enumerate(data):
-        if "guard" not in edge:
-            continue
-        guard_expr = _translate_expression(edge["guard"]["exp"], ctx.scope)
-        update = update.assume((edge_expr != edge_idx) | guard_expr)
+        update = update.assume((edge_expr != edge_idx) | edge_guards[edge_idx])
 
     return update
 
@@ -496,9 +543,7 @@ def _create_state_labels(locs, ctx: AutomatonContext):
     assert len(locs) == 1, "Support only a single location"
     this_loc = locs[0]
     if "transient-values" not in this_loc:
-        # TODO put an empty circuit.
-        return BV.source(wordlen=1, value=1, name="dummy", signed=False) \
-               >> BV.sink(1, inputs=['dummy'])
+        return empty_circuit()
     label_assignments = []
     labels_assigned = set()
     for assignment in this_loc["transient-values"]:
@@ -522,13 +567,15 @@ def _create_state_labels(locs, ctx: AutomatonContext):
     return loc_circuit
 
 
-def _translate_automaton(data: dict, scope: JaniScope):
+def _translate_automaton(data: dict,
+                         scope: JaniScope,
+                         action_deterministic : bool):
     # TODO: Apply feedback loops to make sequential circuit.
     ctx = _create_automaton_context(data, scope)
     if "variables" in data:
         _translate_variables(data["variables"], scope)
     loc_circuit = _create_state_labels(data["locations"], ctx)
-    update = _translate_edges(data["edges"], ctx)
+    update = _translate_edges(data["edges"], ctx, action_deterministic)
     network = update | loc_circuit
     wires, relabels = [], {}
     for var in ctx.scope.variables:
@@ -548,13 +595,13 @@ def _translate_automaton(data: dict, scope: JaniScope):
     return network.loopback(*wires)['o', relabels]
 
 
-def translate_file(path):
+def translate_file(path, action_deterministic = False):
     with open(path) as f:
         jani_enc = json.load(f)
-    return translate_jani(jani_enc)
+    return translate_jani(jani_enc, action_deterministic)
 
 
-def translate_jani(data: json):
+def translate_jani(data: json, action_deterministic = False):
     global_scope = JaniScope()
     if "constants" in data:
         _translate_constants(data["constants"], global_scope)
@@ -566,7 +613,7 @@ def translate_jani(data: json):
     aut, *_ = data["automata"]
 
     aut_encoding = _translate_automaton(
-        aut, global_scope.make_local_scope_copy())
+        aut, global_scope.make_local_scope_copy(), action_deterministic)
     # TODO use mod variables to select which variables to update
     for var in global_scope.variables:
         aut_encoding = aut_encoding >> BV.sink(1, [var.name + "-mod"])
