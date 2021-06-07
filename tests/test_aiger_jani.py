@@ -52,6 +52,7 @@ def test_plaingrid():
 
     def get_next_loc(step):
         # Result holds path from simulation
+        assert result[step][0]["_valid_input"]
         return result[step][0]['global-x'], result[step][0]['global-y']
 
     def get_current_labels(step):
@@ -154,6 +155,10 @@ def test_plaingrid():
     assert get_current_labels(14) == {"red"}
     # Next state
     assert get_next_loc(14) == (4, 0)
+
+    two_actions = {'north': True, 'south': True, 'east': False, 'west': False}
+    result = circ.simulate([two_actions])
+    assert not result[0][0]["_valid_input"]
 
 
 def test_plaingrid_extended():
