@@ -172,6 +172,14 @@ def test_plaingrid_extended():
                             'station', 'exit', '_valid_input'}
 
 
+def test_boundedgrid():
+    circ = translate_file("tests/jani_files/bounded_grid.jani",
+                          action_deterministic=True)
+    assert circ.inputs == {"north", "south", "west", "east"}
+    assert circ.outputs == {'global-x', 'global-y', 'red',
+                            'station', 'exit', '_valid_input'}
+
+
 def test_obstacleflat():
     circ = translate_file("tests/jani_files/obstacle-flat-nonslip.jani",
                           action_deterministic=True)
