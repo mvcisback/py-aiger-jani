@@ -156,8 +156,8 @@ class AutomatonContext:
     _aut_name: str
     scope: JaniScope
     locations: dict[Any, bool]  # TODO: tighen signature.
-    _actions: dict[str, int] = attr.ib(factory=lambda: {"": 0})
-    _action_edges: dict[str, [int]] = attr.ib(factory=lambda: {"": []})
+    _actions: dict[str, int] = attr.ib(factory=lambda: {})
+    _action_edges: dict[str, [int]] = attr.ib(factory=lambda: {})
     _distributions: dict[Probs, C.PCirc] = attr.ib(factory=dict)
 
     def register_distribution(self, probs):
@@ -493,6 +493,10 @@ def _translate_edges(data: dict,
     selectors_composed = par_compose(selectors())
     update = edge_circuits_composed >> selectors_composed
 
+    # Add guards
+    for edge_idx, edge in enumerate(data):
+        update = update.assume((edge_expr != edge_idx) | edge_guards[edge_idx])
+
     if action_deterministic:
         action_enabled = {}
         action_in = []
@@ -516,13 +520,7 @@ def _translate_edges(data: dict,
         action_to_edge_netw = action_to_edge_netw.with_output('edge').aigbv
         select_one_action = at_most_one(action_in).with_output("_valid_input").aigbv
         action_to_edge_netw = par_compose([action_to_edge_netw,select_one_action])
-        print(action_to_edge_netw)
-        print(update)
         update = update << action_to_edge_netw
-
-    # Add guards
-    for edge_idx, edge in enumerate(data):
-        update = update.assume((edge_expr != edge_idx) | edge_guards[edge_idx])
 
     return update
 
