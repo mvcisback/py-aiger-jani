@@ -160,6 +160,10 @@ def test_plaingrid():
     result = circ.simulate([two_actions])
     assert not result[0][0]["_valid_input"]
 
+    no_actions = {'north': False, 'south': False, 'east': False, 'west': False}
+    result = circ.simulate([no_actions])
+    assert not result[0][0]["_valid_input"]
+
 
 def test_plaingrid_extended():
     circ = translate_file("tests/jani_files/grid_two.jani",

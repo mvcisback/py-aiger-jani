@@ -15,7 +15,7 @@ import operator as op
 from functools import reduce
 
 from aiger_jani.utils import atom, mux, par_compose, min_op, max_op,\
-    min_bits, empty_circuit, at_most_one
+    min_bits, empty_circuit, exactly_one
 
 BVExpr = BV.UnsignedBVExpr
 
@@ -523,7 +523,7 @@ def _translate_edges(data: dict,
             else:
                 action_enabled[action] = BV.uatom(1, 0)
         action_to_edge_netw = action_to_edge_netw.with_output('edge').aigbv
-        select_one_action = at_most_one(action_in)\
+        select_one_action = exactly_one(action_in)\
             .with_output("_valid_input").aigbv
         action_to_edge_netw = par_compose([action_to_edge_netw,
                                            select_one_action])

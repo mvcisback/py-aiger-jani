@@ -27,6 +27,14 @@ def mux(outputs: Sequence[BVExpr], *, key_name: str = "mux") -> BVExpr:
     return reduce(op.or_, masked_outputs(outputs, key_name))
 
 
+def exactly_one(exprs) -> BVExpr:
+    """
+    Returns an expression
+    that is true if exactly one of the expressions is true
+    """
+    return at_most_one(exprs) & reduce(op.or_, exprs)
+
+
 def at_most_one(exprs) -> BVExpr:
     """Returns an expression that is true if at most one expression is true"""
     pairs = []
