@@ -45,7 +45,7 @@ def empty_circuit() -> BV.AIGBV:
     """Returns a circuit without input or output"""
     # TODO this should be easier
     return BV.source(wordlen=1, value=1, name="dummy", signed=False) \
-           >> BV.sink(1, inputs=['dummy'])
+        >> BV.sink(1, inputs=['dummy'])
 
 
 def atom(n: Number, name: str) -> BVExpr:

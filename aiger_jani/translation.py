@@ -14,8 +14,8 @@ from fractions import Fraction
 import operator as op
 from functools import reduce
 
-from aiger_jani.utils import atom, mux, par_compose, min_op, max_op, min_bits, \
-    empty_circuit, at_most_one
+from aiger_jani.utils import atom, mux, par_compose, min_op, max_op,\
+    min_bits, empty_circuit, at_most_one
 
 BVExpr = BV.UnsignedBVExpr
 
@@ -104,7 +104,10 @@ class JaniScope:
             self._variables[name] = variable
         else:
             self._transient_vars[name] = variable
-        self._aigvars[name] = atom(upper_bound - lower_bound, name)
+        # The variable is signed in order to catch overflows
+        self._aigvars[name] = BV.atom(min_bits(upper_bound-lower_bound) + 2,
+                                      name,
+                                      signed=True)
 
     def add_constant(self, name: str, tp: str, value: str) -> None:
         assert tp in ["real", "int"], f"Got type {tp}"
@@ -176,7 +179,8 @@ class AutomatonContext:
             func = D.from_aigbv(sel.aigbv, input_encodings={name: encoder})
 
             name2prob = {
-                name: {f"sel-{index}": prob for index, prob in enumerate(probs)}
+                name: {f"sel-{index}": prob
+                       for index, prob in enumerate(probs)}
             }
             coins_id = f"{self._aut_name}_c{len(self._distributions)}"
 
@@ -185,15 +189,15 @@ class AutomatonContext:
                 .with_coins_id(coins_id)
         return self._distributions[dist]
 
-    def register_action(self, action: str, edge_index : int):
+    def register_action(self, action: str, edge_index: int):
         """
         :param action: The name of the action
         :return: The action index and the internal non-det index
         """
         if action not in self._actions:
             self._actions[action] = len(self._actions)
-        self._action_edges[action] = self._action_edges.get(action, [])\
-                                    + [edge_index]
+        self._action_edges[action] = self._action_edges\
+                                         .get(action, []) + [edge_index]
         return self._actions[action], self._action_edges[action]
 
     @property
@@ -419,6 +423,7 @@ def _translate_destinations(data: dict, ctx: AutomatonContext) -> set[str]:
                 size = ctx.scope.get_aig_variable(var).size
                 outputs = [BV.uatom(size, f"{var}-{idx}") for idx in indices]
                 yield mux(outputs, key_name='sel').with_output(var).aigbv
+
         edge_circuit >>= par_compose(selectors())
         edge_circuit <<= prob_input
     else:
@@ -503,23 +508,25 @@ def _translate_edges(data: dict,
         action_to_edge_netw = BV.uatom(edge_size, 0)
         for action in ctx.actions:
             action_guards = []
-            action_to_edge_inner_netw = BV.uatom(edge_size, 0)
+            action_to_edge_aux_netw = BV.uatom(edge_size, 0)
             action_in.append(BV.uatom(1, action))
             for edge_idx in ctx.get_edge_indices(action):
                 action_guards.append(edge_guards[edge_idx])
-                action_to_edge_inner_netw = BV.ite(action_guards[-1],
-                                                   BV.uatom(edge_size, edge_idx),
-                                                   action_to_edge_inner_netw)
+                action_to_edge_aux_netw = BV.ite(action_guards[-1],
+                                                 BV.uatom(edge_size, edge_idx),
+                                                 action_to_edge_aux_netw)
             action_to_edge_netw = BV.ite(action_in[-1],
-                                         action_to_edge_inner_netw,
+                                         action_to_edge_aux_netw,
                                          action_to_edge_netw)
             if len(action_guards) > 0:
                 action_enabled[action] = reduce(op.or_, action_guards)
             else:
                 action_enabled[action] = BV.uatom(1, 0)
         action_to_edge_netw = action_to_edge_netw.with_output('edge').aigbv
-        select_one_action = at_most_one(action_in).with_output("_valid_input").aigbv
-        action_to_edge_netw = par_compose([action_to_edge_netw,select_one_action])
+        select_one_action = at_most_one(action_in)\
+            .with_output("_valid_input").aigbv
+        action_to_edge_netw = par_compose([action_to_edge_netw,
+                                           select_one_action])
         update = update << action_to_edge_netw
 
     return update
@@ -567,7 +574,7 @@ def _create_state_labels(locs, ctx: AutomatonContext):
 
 def _translate_automaton(data: dict,
                          scope: JaniScope,
-                         action_deterministic : bool):
+                         action_deterministic: bool):
     # TODO: Apply feedback loops to make sequential circuit.
     ctx = _create_automaton_context(data, scope)
     if "variables" in data:
@@ -593,13 +600,13 @@ def _translate_automaton(data: dict,
     return network.loopback(*wires)['o', relabels]
 
 
-def translate_file(path, action_deterministic = False):
+def translate_file(path, action_deterministic=False):
     with open(path) as f:
         jani_enc = json.load(f)
     return translate_jani(jani_enc, action_deterministic)
 
 
-def translate_jani(data: json, action_deterministic = False):
+def translate_jani(data: json, action_deterministic=False):
     global_scope = JaniScope()
     if "constants" in data:
         _translate_constants(data["constants"], global_scope)
