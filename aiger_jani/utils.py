@@ -37,6 +37,8 @@ def exactly_one(exprs) -> BVExpr:
 
 def at_most_one(exprs) -> BVExpr:
     """Returns an expression that is true if at most one expression is true"""
+    if len(exprs) == 1:
+        return BV.uatom(1,1)
     pairs = []
     for index in range(len(exprs)):
         for e2 in exprs[index+1:]:
