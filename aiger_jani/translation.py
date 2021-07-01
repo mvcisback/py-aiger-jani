@@ -525,10 +525,13 @@ def _translate_edges(data: dict,
         action_to_edge_netw = action_to_edge_netw.with_output('edge').aigbv
         select_one_action = exactly_one(action_in)\
             .with_output("_valid_input").aigbv
+        vars = [ctx.scope.get_aig_variable(v.name).
+                          with_output(v.name).aigbv
+                      for v in ctx.scope.variables]
+        # The vars ensure that all variables are piped into the update circuit
         action_to_edge_netw = par_compose([action_to_edge_netw,
-                                           select_one_action])
+                                           select_one_action] + vars)
         update = update << action_to_edge_netw
-
     return update
 
 
