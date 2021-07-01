@@ -184,4 +184,5 @@ def test_obstacleflat():
     circ = translate_file("tests/jani_files/obstacle-flat-nonslip.jani",
                           action_deterministic=True)
     assert circ.outputs == {'global-ax', 'global-ay',
-                            "global-start", '_valid_input'}
+                            "global-start", "goal", "notbad", "traps",
+                            '_valid_input'}
