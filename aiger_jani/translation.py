@@ -162,6 +162,8 @@ class AutomatonContext:
     _actions: dict[str, int] = attr.ib(factory=lambda: {})
     _action_edges: dict[str, [int]] = attr.ib(factory=lambda: {})
     _distributions: dict[Probs, C.PCirc] = attr.ib(factory=dict)
+    _coins: dict[Probs, BV.Circ] = attr.ib(factory=dict)
+    _coin_sel_name: dict[Probs, str] = attr.ib(factory=dict)
 
     def register_distribution(self, probs):
         """
@@ -173,7 +175,7 @@ class AutomatonContext:
         dist = tuple(probs)
         if dist not in self._distributions:
             name = f"{self._aut_name}_c{len(self._distributions)}"
-            sel = atom(len(probs), name).with_output("sel")
+            sel = atom(len(probs), name).with_output(f"sel-{name}")
             lookup = bidict({idx: f'sel-{idx}' for idx in range(len(probs))})
             encoder = D.Encoding(decode=lookup.get, encode=lookup.inv.get)
             func = D.from_aigbv(sel.aigbv, input_encodings={name: encoder})
@@ -187,7 +189,14 @@ class AutomatonContext:
             self._distributions[dist] = C.pcirc(func) \
                 .randomize(name2prob) \
                 .with_coins_id(coins_id)
-        return self._distributions[dist]
+            self._coins[dist] = atom(len(probs)-1, name).with_output(f"sel-{name}").aigbv
+            self._coin_sel_name[dist] = f"sel-{name}"
+        return self._coins[dist], self._coin_sel_name[dist]
+
+    def get_coin_flipping_circuit(self):
+        if len(self._distributions) == 0:
+            return C.pcirc(empty_circuit())
+        return par_compose(list(self._distributions.values()))
 
     def register_action(self, action: str, edge_index: int):
         """
@@ -374,7 +383,7 @@ def _translate_destinations(data: dict, ctx: AutomatonContext) -> set[str]:
             else:
                 probability = d["probability"]["exp"]
                 probs.append(_parse_prob(probability))
-        prob_input = ctx.register_distribution(probs)
+        prob_input, prob_sel_name = ctx.register_distribution(probs)
         # TODO consider what to do with the additional output of prob_input
 
     vars_written_to = set()
@@ -422,12 +431,9 @@ def _translate_destinations(data: dict, ctx: AutomatonContext) -> set[str]:
             for var in vars_written_to:
                 size = ctx.scope.get_aig_variable(var).size
                 outputs = [BV.uatom(size, f"{var}-{idx}") for idx in indices]
-                yield mux(outputs, key_name='sel').with_output(var).aigbv
-
+                yield mux(outputs, key_name=prob_sel_name).with_output(var).aigbv
+                
         edge_circuit >>= par_compose(selectors())
-        edge_circuit <<= prob_input
-    else:
-        edge_circuit = C.pcirc(edge_circuit)  # Deterministic pcirc.
     return edge_circuit, vars_written_to
 
 
@@ -497,7 +503,7 @@ def _translate_edges(data: dict,
     edge_circuits_composed = par_compose(edge_circuits)
     selectors_composed = par_compose(selectors())
     update = edge_circuits_composed >> selectors_composed
-
+    update = ctx.get_coin_flipping_circuit() >> update
     # Add guards
     for edge_idx, edge in enumerate(data):
         update = update.assume((edge_expr != edge_idx) | edge_guards[edge_idx])
