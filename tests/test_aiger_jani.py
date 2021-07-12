@@ -35,8 +35,8 @@ def test_die():
     assert circ.outputs == {'global-s', 'global-d', "_valid_input"}
     assert circ.inputs == {''}
     internal_action = {'': True}
-    result = circ.simulate([internal_action] * 10)
-    
+    _ = circ.simulate([internal_action] * 10)
+
     query = circ << BV.source(1, 1, '', False)
     query >>= BV.sink(5, ['global-s'])
     query >>= (BV.uatom(5, 'global-d') == 3).aigbv
@@ -47,6 +47,27 @@ def test_die():
     assert infer.prob(query.unroll(4, only_last_outputs=True)) == approx(1/8)
     assert infer.prob(query.unroll(5, only_last_outputs=True)) == approx(5/32)
     assert infer.prob(query.unroll(7, only_last_outputs=True)) == approx(21/128)
+
+
+def test_die_unfair_coin():
+    circ = translate_file("tests/jani_files/die-two-coins-one-unfair.jani",
+                          action_deterministic=True)
+    assert circ.outputs == {'global-s', 'global-d', "_valid_input"}
+    assert circ.inputs == {''}
+    internal_action = {'': True}
+    _ = circ.simulate([internal_action] * 10)
+
+    query = circ << BV.source(1, 1, '', False)
+    query >>= BV.sink(5, ['global-s'])
+    query >>= (BV.uatom(5, 'global-d') == 3).aigbv
+    query >>= BV.sink(1, ['_valid_input'])
+    assert infer.prob(query.unroll(1, only_last_outputs=True)) == approx(0)
+    assert infer.prob(query.unroll(2, only_last_outputs=True)) == approx(0)
+    assert infer.prob(query.unroll(3, only_last_outputs=True)) == approx(3 / 16)
+    assert infer.prob(query.unroll(4, only_last_outputs=True)) == approx(3 / 16)
+    assert infer.prob(query.unroll(5, only_last_outputs=True)) == approx(27 / 128)
+    assert infer.prob(query.unroll(7, only_last_outputs=True)) == approx(
+        21 / 128)
 
 
 cardinal = {"north":
