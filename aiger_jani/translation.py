@@ -584,7 +584,6 @@ def _create_state_labels(locs, ctx: AutomatonContext):
 def _translate_automaton(data: dict,
                          scope: JaniScope,
                          action_deterministic: bool):
-    # TODO: Apply feedback loops to make sequential circuit.
     ctx = _create_automaton_context(data, scope)
     if "variables" in data:
         _translate_variables(data["variables"], scope)

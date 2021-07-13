@@ -66,8 +66,7 @@ def test_die_unfair_coin():
     assert infer.prob(query.unroll(3, only_last_outputs=True)) == approx(3 / 16)
     assert infer.prob(query.unroll(4, only_last_outputs=True)) == approx(3 / 16)
     assert infer.prob(query.unroll(5, only_last_outputs=True)) == approx(27 / 128)
-    assert infer.prob(query.unroll(7, only_last_outputs=True)) == approx(
-        21 / 128)
+    assert infer.prob(query.unroll(7, only_last_outputs=True)) == approx(27 / 128)
 
 
 cardinal = {"north":
